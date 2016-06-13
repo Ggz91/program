@@ -58,7 +58,7 @@ osg::ref_ptr<osg::Geode> createboundingbox(osg::Node* node)
 }
 
 //根据三个顶点确定一个三维面片
-osg::ref_ptr<osg::Geode> GetTrainglePlane(osg::Vec3f* p1,osg::Vec3f* p2,osg::Vec3f* p3)
+osg::ref_ptr<osg::Geode> GetTrainglePlane(osg::Vec3f* p1,osg::Vec3f* p2,osg::Vec3f* p3,osg::ref_ptr<osg::Geode> parent)
 {
 	/*osg::Geode* geode=new osg::Geode;
 	osg::Geometry* polyGeom = new osg::Geometry;*/
@@ -66,19 +66,24 @@ osg::ref_ptr<osg::Geode> GetTrainglePlane(osg::Vec3f* p1,osg::Vec3f* p2,osg::Vec
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	osg::ref_ptr<osg::Geometry> polyGeom =  new osg::Geometry;
 
+	osg::Vec3f p1t = (*p1)*computeLocalToWorld(parent->getParentalNodePaths()[0]);
+	osg::Vec3f p2t = (*p2)*computeLocalToWorld(parent->getParentalNodePaths()[0]);
+	osg::Vec3f p3t = (*p3)*computeLocalToWorld(parent->getParentalNodePaths()[0]);
+	
 	osg::Vec3 myCoords[]=
 	{
-		*p1,
-		*p2,
-		*p3
+		p1t,
+		p2t,
+		p3t
 	};
 
+	
 	int numCoords = sizeof(myCoords)/sizeof(osg::Vec3);
 	osg::Vec3Array* vertices = new osg::Vec3Array(numCoords,myCoords);
 	polyGeom->setVertexArray(vertices);
 	polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,numCoords));
 	geode->addDrawable(polyGeom);
-	geode->addDrawable(polyGeom);
+	//geode->addDrawable(polyGeom);
 	//getTriangles(*polyGeom);
 	return geode;
 }
@@ -100,7 +105,7 @@ struct GetVertex
 
 //获取一个Drawable的三角面片集合
 //std::vector<osg::ref_ptr<osg::Geode>> getTriangles(osg::Drawable& drawable)
-drawableInfo* getTriangles(osg::Drawable& drawable)
+drawableInfo* getTriangles(osg::Drawable& drawable,osg::ref_ptr<osg::Geode> geode)
 {
 
 	std::vector<osg::ref_ptr<osg::Geode>> res_TP;
@@ -150,7 +155,7 @@ drawableInfo* getTriangles(osg::Drawable& drawable)
 				p3 = &vertex;
 				std::cout<<std::endl;
 				i = 0;
-				geode_TP = GetTrainglePlane(p1, p2, p3);
+				geode_TP = GetTrainglePlane(p1, p2, p3,geode);
 				res_TP.push_back(geode_TP);
 
 				geode_AABB = createboundingbox(geode_TP);
@@ -160,7 +165,7 @@ drawableInfo* getTriangles(osg::Drawable& drawable)
 		}
 
 	}
-
+	
 	std::cout<<std::endl;
 
 	drawableInfo* res = new drawableInfo;
@@ -169,6 +174,24 @@ drawableInfo* getTriangles(osg::Drawable& drawable)
 	return res;
 }
 
+drawableInfo* transDIfromLocalToWorld(drawableInfo* di)
+{
+	drawableInfo* res = new drawableInfo;
+
+	std::vector<osg::ref_ptr<osg::Geode>>::iterator it1 = di->res_AABB.begin();
+	std::vector<osg::ref_ptr<osg::Geode>>::iterator it2 = di->res_TP.begin();
+
+	for (;it1 != di->res_AABB.end();it1++)
+	{
+		/*int i ;
+		i = (*it1)->getNumParents();*/
+		(*it1)->getBound().center()*osg::computeLocalToWorld((*it1)->getParentalNodePaths()[0]);
+		//printf("%d",i);
+	}
+
+	return res;
+
+}
 
 void main(int argc,char** argv[])
 {
@@ -200,7 +223,20 @@ void main(int argc,char** argv[])
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode = node1->asGroup()->getChild(0)->asGeode();
 
-	getTriangles(*root->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGeode()->getDrawable(0));
+	//drawableInfo* di = getTriangles(*root->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGeode()->getDrawable(0),root->getChild(0)->asGroup()->asGeode());
+	//获取子节点的三角面片及其AABB，并三角面片以及AABB的坐标转换为世界坐标系
+	drawableInfo* di1 = getTriangles(*node1->asGroup()->getChild(0)->asGeode()->getDrawable(0),node1->asGroup()->getChild(0)->asGeode());
+
+	drawableInfo* di2 = getTriangles(*node2->asGroup()->getChild(0)->asGeode()->getDrawable(0),node2->asGroup()->getChild(0)->asGeode());
+	
+	//将各子节点的三角面片以及AABB数组合并
+	drawableInfo* all = new drawableInfo;
+	di2->res_AABB.insert(di2->res_AABB.end(),di1->res_AABB.begin(),di1->res_AABB.end());
+	di2->res_TP.insert(di2->res_TP.end(),di1->res_TP.begin(),di1->res_TP.end());
+	
+	all->res_AABB = di2->res_AABB;
+	all->res_TP = di2->res_TP;
+
 
 	//展示整个场景
 	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
