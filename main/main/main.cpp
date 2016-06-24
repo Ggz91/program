@@ -1,200 +1,116 @@
 #include <stdlib.h>
 #include <iostream>
 
-#include <osgViewer/Viewer>
-#include <osgDB/ReadFile>
-#include <osg/Node>
-#include <osg/Geode>
-#include <osg/Group>
-
-#include <osg/MatrixTransform>
-#include <osg/TriangleFunctor>
+#include <CL/cl.h>
 #include <vector>
+#include <fstream>
 
-#include <osg/ComputeBoundsVisitor>
-#include <osg/ShapeDrawable>
-#include <osg/PolygonMode>
-#include <osg/LineWidth>
-
+#include "cusLib.h"
 
 
 //用来记录一个结点对应三角面片跟AABB的结构体
-struct drawableInfo
-{
-	std::vector<osg::ref_ptr<osg::Geode>> res_TP;
-	std::vector<osg::ref_ptr<osg::Geode>> res_AABB;
-
-};
-
-//根据一个结点求对应的AABB
-osg::ref_ptr<osg::Geode> createboundingbox(osg::Node* node)
-{
-	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	osg::ComputeBoundsVisitor boundvisitor ;
-	node->accept(boundvisitor);
-	osg::BoundingBox bb = boundvisitor.getBoundingBox();
-
-	float lengthx = bb.xMax()-bb.xMin();
-	float lengthy = bb.yMax()-bb.yMin();
-	float lengthz = bb.zMax()-bb.zMin();
-	osg::Vec3 center= osg::Vec3((bb.xMax()+bb.xMin())/2,(bb.yMax()+bb.yMin())/2,(bb.zMax()+bb.zMin())/2);
-
-	osg::ref_ptr<osg::ShapeDrawable>  drawable = new osg::ShapeDrawable(new osg::Box(center,lengthx,lengthy,lengthz));
-	drawable->setColor(osg::Vec4(1.0,1.0,0.0,1.0));
-
-	osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
-	stateset= drawable->getOrCreateStateSet();
-	osg::ref_ptr<osg::PolygonMode> polygon = new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
-	stateset->setAttributeAndModes(polygon);
-
-	//设置线宽
-	osg::ref_ptr<osg::LineWidth> linewidth = new osg::LineWidth(3.0);
-	stateset->setAttribute(linewidth);
-
-
-	geode->addDrawable(drawable);
-	return geode;
-
-}
-
-//根据三个顶点确定一个三维面片
-osg::ref_ptr<osg::Geode> GetTrainglePlane(osg::Vec3f* p1,osg::Vec3f* p2,osg::Vec3f* p3,osg::ref_ptr<osg::Geode> parent)
-{
-	/*osg::Geode* geode=new osg::Geode;
-	osg::Geometry* polyGeom = new osg::Geometry;*/
-
-	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	osg::ref_ptr<osg::Geometry> polyGeom =  new osg::Geometry;
-
-	osg::Vec3f p1t = (*p1)*computeLocalToWorld(parent->getParentalNodePaths()[0]);
-	osg::Vec3f p2t = (*p2)*computeLocalToWorld(parent->getParentalNodePaths()[0]);
-	osg::Vec3f p3t = (*p3)*computeLocalToWorld(parent->getParentalNodePaths()[0]);
-	
-	osg::Vec3 myCoords[]=
-	{
-		p1t,
-		p2t,
-		p3t
-	};
-
-	
-	int numCoords = sizeof(myCoords)/sizeof(osg::Vec3);
-	osg::Vec3Array* vertices = new osg::Vec3Array(numCoords,myCoords);
-	polyGeom->setVertexArray(vertices);
-	polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,numCoords));
-	geode->addDrawable(polyGeom);
-	//geode->addDrawable(polyGeom);
-	//getTriangles(*polyGeom);
-	return geode;
-}
-
-//三角面片访问结构体
-struct GetVertex
-{
-	void operator() (const osg::Vec3& v1,const osg::Vec3& v2,const osg::Vec3& v3, bool) const 
-	{
-		vertexList->push_back(v1);
-		vertexList->push_back(v2);
-		vertexList->push_back(v3);
-	}
-
-	osg::Vec3Array* vertexList;
-
-};
-
-
-//获取一个Drawable的三角面片集合
-//std::vector<osg::ref_ptr<osg::Geode>> getTriangles(osg::Drawable& drawable)
-drawableInfo* getTriangles(osg::Drawable& drawable,osg::ref_ptr<osg::Geode> geode)
-{
-
-	std::vector<osg::ref_ptr<osg::Geode>> res_TP;
-	std::vector<osg::ref_ptr<osg::Geode>> res_AABB;
-
-	osg::Vec3* p1 = new osg::Vec3;
-	osg::Vec3* p2 = new osg::Vec3;
-	osg::Vec3* p3 = new osg::Vec3;
-
-	osg::TriangleFunctor<GetVertex> tf;
-	tf.vertexList=new osg::Vec3Array;
-
-	drawable.accept(tf);
-	int i = 0;
-	for(osg::Vec3Array::iterator itr=tf.vertexList->begin();
-		itr!=tf.vertexList->end();
-		itr++)
-	{
-		osg::Vec3 vertex=*itr;
-		//std::cout<<vertex<<std::endl;
-		std::cout<<itr->x()<<" "<<itr->y()<<" "<<itr->z()<<std::endl;
-		//std::cout<<std::endl;
-
-		/*if (i == 2)
-		{
-			std::cout<<std::endl;
-			i = 0;
-		}
-		else
-		{
-			i++;
-		}*/
-
-		osg::ref_ptr<osg::Geode> geode_TP = new osg::Geode;
-		osg::ref_ptr<osg::Geode> geode_AABB = new osg::Geode;
-		switch(i)
-		{
-			case 0:
-				p1 = &vertex;
-				i++;
-				break;
-			case 1:
-				p2 = &vertex;
-				i++;
-				break;
-			case 2:
-				p3 = &vertex;
-				std::cout<<std::endl;
-				i = 0;
-				geode_TP = GetTrainglePlane(p1, p2, p3,geode);
-				res_TP.push_back(geode_TP);
-
-				geode_AABB = createboundingbox(geode_TP);
-				res_AABB.push_back(geode_AABB);
-
-				break;
-		}
-
-	}
-	
-	std::cout<<std::endl;
-
-	drawableInfo* res = new drawableInfo;
-	res->res_TP = res_TP;
-	res->res_AABB = res_AABB;
-	return res;
-}
-
-drawableInfo* transDIfromLocalToWorld(drawableInfo* di)
-{
-	drawableInfo* res = new drawableInfo;
-
-	std::vector<osg::ref_ptr<osg::Geode>>::iterator it1 = di->res_AABB.begin();
-	std::vector<osg::ref_ptr<osg::Geode>>::iterator it2 = di->res_TP.begin();
-
-	for (;it1 != di->res_AABB.end();it1++)
-	{
-		/*int i ;
-		i = (*it1)->getNumParents();*/
-		(*it1)->getBound().center()*osg::computeLocalToWorld((*it1)->getParentalNodePaths()[0]);
-		//printf("%d",i);
-	}
-
-	return res;
-
-}
 
 void main(int argc,char** argv[])
 {
+	//设置OpenCL环境
+	cl_int status;
+	cl_uint platformNum;
+	char tbuf[0x10000];
+
+	status = clGetPlatformIDs(0,NULL,&platformNum);
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clGetPlatformsIDs error!"<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+	std::cout<<"the number of valid platforms is :"<<platformNum<<std::endl;
+
+
+	std::vector<cl_platform_id>  platformIds(platformNum);
+	status = clGetPlatformIDs(platformNum,&platformIds[0],NULL);
+
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clGetPlatformsIDs error!"<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+	cl_uint deviceNum;
+	status = clGetDeviceIDs(platformIds[0], CL_DEVICE_TYPE_GPU, 0, 0, &deviceNum);
+
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clGetDeviceIDs error!"<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+	std::cout<<"the num of this platform's devices is :"<<deviceNum<<std::endl;
+
+	std::vector<cl_device_id> deviceIds(deviceNum);
+	status = clGetDeviceIDs(platformIds[0], CL_DEVICE_TYPE_GPU, 1, &deviceIds[0], NULL);
+
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clGetDeviceIDs error!"<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+
+	cl_context_properties prop[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platformIds[0], 0};
+	cl_context context = clCreateContextFromType(prop, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);
+
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clCreateContextFromType error!"<<std::endl;
+		cl_context_info contextInfo;
+		clGetContextInfo(context,contextInfo,0x10000,tbuf,NULL);
+		std::cout<<tbuf<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+	system("echo ====================================================");	
+	std::cout<<"The context of OpenCL is build successfully!"<<std::endl;
+	system("echo ====================================================");
+	system("pause");
+
+	//载入kernel项目
+	std::ifstream file("kernel.cl",std::ios_base::binary);
+
+	if (!file.is_open())
+	{
+		std::cout<<"Error in the open of kernel file!"<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+	file.seekg(0,std::ios_base::end);
+	size_t length = file.tellg();
+	file.seekg(0,std::ios_base::beg);
+	std::vector<char> data(length+1);
+	file.read(&data[0],length);
+	data[length] = 0;
+	const char* source = &data[0];
+
+	cl_program program = clCreateProgramWithSource(context,1,&source,&length,&status);
+	//const char options[] = "-I F:\\software\\OSG\\OSG\\OSG\\include\\osg -I F:\\software\\OSG\\OSG\\OSG\\include\\osgViewer -I F:\\software\\OSG\\OSG\\OSG\\include\\osgDB -I F:\\learning\\program\\main\\main";
+	const char options[] ="";
+	status = clBuildProgram(program, 1, &deviceIds[0], options, 0, 0);
+
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clBuildProgram error"<<std::endl;
+		clGetProgramBuildInfo(program,deviceIds[0],CL_PROGRAM_BUILD_LOG,0x10000,tbuf,NULL);
+		std::cout<<tbuf<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
 	//载入两个实验结点
 	osg::ref_ptr<osg::Node> node1 = new osg::Node;
 	osg::ref_ptr<osg::Node> node2 = new osg::Node;
@@ -217,31 +133,44 @@ void main(int argc,char** argv[])
 	group->addChild(axes2);
 
 	osg::ref_ptr<osg::Group> root =  new osg::Group;
-	root->addChild(group);
+	//root->addChild(group);
 	
 	//测试代码区
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode = node1->asGroup()->getChild(0)->asGeode();
 
 	//drawableInfo* di = getTriangles(*root->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGeode()->getDrawable(0),root->getChild(0)->asGroup()->asGeode());
-	//获取子节点的三角面片及其AABB，并三角面片以及AABB的坐标转换为世界坐标系
-	drawableInfo* di1 = getTriangles(*node1->asGroup()->getChild(0)->asGeode()->getDrawable(0),node1->asGroup()->getChild(0)->asGeode());
+	//获取子节点的三角面片及其AABB，并将三角面片以及AABB的坐标转换为世界坐标系
+	DrawableInfo* di1 = getTriangles(*node1->asGroup()->getChild(0)->asGeode()->getDrawable(0),node1->asGroup()->getChild(0)->asGeode());
 
-	drawableInfo* di2 = getTriangles(*node2->asGroup()->getChild(0)->asGeode()->getDrawable(0),node2->asGroup()->getChild(0)->asGeode());
+	DrawableInfo* di2 = getTriangles(*node2->asGroup()->getChild(0)->asGeode()->getDrawable(0),node2->asGroup()->getChild(0)->asGeode());
 	
+	
+	
+
+	system("echo ====================================================");
+	system("pause");
+
 	//将各子节点的三角面片以及AABB数组合并
-	drawableInfo* all = new drawableInfo;
-	di2->res_AABB.insert(di2->res_AABB.end(),di1->res_AABB.begin(),di1->res_AABB.end());
-	di2->res_TP.insert(di2->res_TP.end(),di1->res_TP.begin(),di1->res_TP.end());
-	
-	all->res_AABB = di2->res_AABB;
-	all->res_TP = di2->res_TP;
+	DrawableInfo* all = new DrawableInfo;
 
+	di2->triangleInfoArray.insert(di2->triangleInfoArray.end(),di1->triangleInfoArray.begin(),di1->triangleInfoArray.end());
+	all->triangleInfoArray = di2->triangleInfoArray;
+
+	auto it = all->triangleInfoArray.begin();
+	for(; it<all->triangleInfoArray.end(); it++)
+	{
+		osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
+		createGeode((*it), geodeTmp); 
+		root->addChild(geodeTmp);
+
+	}
+	
 
 	//展示整个场景
 	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
 	viewer->setUpViewInWindow(500,200,1000,800);
 	viewer->setSceneData(root.get());
 	viewer->run();
-	
+	system("echo in the end");
 }
