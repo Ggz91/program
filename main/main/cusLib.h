@@ -76,12 +76,22 @@ struct TriangleInfo
 
 };
 
+//用来记录三角面片ID以及候选分隔平面的结构体
+struct TriangleCandidateSplitPlane
+{
+	int triangleID;
+	float xCandidateSplitPlane;
+	float yCandidateSplitPlane;
+	float zCandidateSplitPlane;
+};
+
 //用来记录一个结点对应三角面片跟AABB等信息的结构体
 struct DrawableInfo
 {
 	/*std::vector<osg::ref_ptr<osg::Geode>> res_TP;
 	std::vector<osg::ref_ptr<osg::Geode>> res_AABB;*/
 	std::vector<TriangleInfo*> triangleInfoArray;
+	std::vector<TriangleCandidateSplitPlane*> triangleCandidateSplitPlane;
 	osg::Vec3Array* vertexList;
 };
 
@@ -313,7 +323,9 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firs
 	drawable.accept(tf);
 
 	TriangleInfo* resTrianglesInfo = new TriangleInfo;
+	TriangleCandidateSplitPlane* resTriangleCandidateSplitPlane = new TriangleCandidateSplitPlane;
 	DrawableInfo* res = new DrawableInfo;
+
 	osg::Vec3f* p1 = new osg::Vec3f;
 	osg::Vec3f* p2 = new osg::Vec3f;
 	osg::Vec3f* p3 = new osg::Vec3f;
@@ -355,9 +367,12 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firs
 
 			//	std::cout<<"================================"<<std::endl;
 			resTrianglesInfo = new TriangleInfo;
+			resTriangleCandidateSplitPlane = new TriangleCandidateSplitPlane;
 			GetTraingleInfo(p1, p2, p3, firstID, resTrianglesInfo);
+			resTriangleCandidateSplitPlane->triangleID = firstID;
 			firstID++;
 			res->triangleInfoArray.push_back(&(*resTrianglesInfo));
+			res->triangleCandidateSplitPlane.push_back(&(*resTriangleCandidateSplitPlane));
 			//	std::cout<<std::endl;
 			i = 0;
 			break;

@@ -150,7 +150,7 @@ void main(int argc,char** argv[])
 	
 	
 	
-
+	system("echo the array of CandidatePlane has been prepared");
 	system("echo ====================================================");
 	system("pause");
 
@@ -158,7 +158,9 @@ void main(int argc,char** argv[])
 	DrawableInfo* all = new DrawableInfo;
 
 	di2->triangleInfoArray.insert(di2->triangleInfoArray.end(),di1->triangleInfoArray.begin(),di1->triangleInfoArray.end());
+	di2->triangleCandidateSplitPlane.insert(di2->triangleCandidateSplitPlane.end(),di1->triangleCandidateSplitPlane.begin(),di1->triangleCandidateSplitPlane.end());
 	all->triangleInfoArray = di2->triangleInfoArray;
+	all->triangleCandidateSplitPlane = di2->triangleCandidateSplitPlane;
 
 	auto it = all->triangleInfoArray.begin();
 	for(; it<all->triangleInfoArray.end(); it++)
@@ -176,4 +178,5 @@ void main(int argc,char** argv[])
 	viewer->setSceneData(root.get());
 	viewer->run();
 	system("echo in the end");
+	system("pause");
 }
