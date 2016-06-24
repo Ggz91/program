@@ -98,7 +98,7 @@ void main(int argc,char** argv[])
 	const char* source = &data[0];
 
 	cl_program program = clCreateProgramWithSource(context,1,&source,&length,&status);
-	//const char options[] = "-I F:\\software\\OSG\\OSG\\OSG\\include\\osg -I F:\\software\\OSG\\OSG\\OSG\\include\\osgViewer -I F:\\software\\OSG\\OSG\\OSG\\include\\osgDB -I F:\\learning\\program\\main\\main";
+	//const char options[] = "-I F:\\learning\\program\\main\\main\\cusLib.h";
 	const char options[] ="";
 	status = clBuildProgram(program, 1, &deviceIds[0], options, 0, 0);
 
@@ -122,6 +122,7 @@ void main(int argc,char** argv[])
 	osg::ref_ptr<osg::MatrixTransform> axes2 = new osg::MatrixTransform;
 
 	axes1->setMatrix(osg::Matrix::translate(5,20,20));
+	//axes1->setMatrix(osg::Matrix::translate(5,20,20)*osg::Matrix::rotate(osg::DegreesToRadians(30.0), 0, 0, 1));
 	axes2->setMatrix(osg::Matrix::translate(5,0,0));
 
 	axes1->addChild(node1);
@@ -141,9 +142,11 @@ void main(int argc,char** argv[])
 
 	//drawableInfo* di = getTriangles(*root->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGeode()->getDrawable(0),root->getChild(0)->asGroup()->asGeode());
 	//获取子节点的三角面片及其AABB，并将三角面片以及AABB的坐标转换为世界坐标系
-	DrawableInfo* di1 = getTriangles(*node1->asGroup()->getChild(0)->asGeode()->getDrawable(0),node1->asGroup()->getChild(0)->asGeode());
-
-	DrawableInfo* di2 = getTriangles(*node2->asGroup()->getChild(0)->asGeode()->getDrawable(0),node2->asGroup()->getChild(0)->asGeode());
+	int ID = 0;//三角面片的ID，整个场景一起命名
+	osg::Matrixf* mat1 = getWorldCoords(group->getChild(0));
+	osg::Matrixf* mat2 = getWorldCoords(group->getChild(1));
+ 	DrawableInfo* di1 = getTriangles(*node1->asGroup()->getChild(0)->asGeode()->getDrawable(0), mat1, ID);
+	DrawableInfo* di2 = getTriangles(*node2->asGroup()->getChild(0)->asGeode()->getDrawable(0), mat2, ID);
 	
 	
 	
@@ -166,7 +169,7 @@ void main(int argc,char** argv[])
 
 	}
 	
-
+	//root->addChild(group);
 	//展示整个场景
 	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
 	viewer->setUpViewInWindow(500,200,1000,800);

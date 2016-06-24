@@ -1,3 +1,4 @@
+
 __kernel void getTriangles()
 {
 	

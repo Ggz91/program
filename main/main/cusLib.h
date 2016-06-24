@@ -24,10 +24,59 @@
 //用来记录三家片相关信息的结构体
 struct TriangleInfo
 {
+	int triangleID;
+
 	osg::Vec3f* vecInfo[3];
+
+	float GetXmin()
+	{
+		float xTmp = vecInfo[0]->x();
+		if(vecInfo[1]->x() < xTmp) 
+		{	
+			xTmp = vecInfo[1]->x();
+		}
+		if (vecInfo[2]->x() < xTmp)
+		{
+			xTmp = vecInfo[2]->x();
+		}
+
+		return xTmp;
+	}
+
+
+	float GetYmin()
+	{
+		float yTmp = vecInfo[0]->y();
+		if(vecInfo[1]->y() < yTmp) 
+		{	
+			yTmp = vecInfo[1]->y();
+		}
+		if (vecInfo[2]->y() < yTmp)
+		{
+			yTmp = vecInfo[2]->y();
+		}
+
+		return yTmp;
+	}
+
+	float GetZmin()
+	{
+		float zTmp = vecInfo[0]->z();
+		if(vecInfo[1]->z() < zTmp) 
+		{	
+			zTmp = vecInfo[1]->z();
+		}
+		if (vecInfo[2]->z() < zTmp)
+		{
+			zTmp = vecInfo[2]->z();
+		}
+
+		return zTmp;
+	}
+
 };
 
-//用来记录一个结点对应三角面片跟AABB的结构体
+//用来记录一个结点对应三角面片跟AABB等信息的结构体
 struct DrawableInfo
 {
 	/*std::vector<osg::ref_ptr<osg::Geode>> res_TP;
@@ -112,11 +161,67 @@ struct GetVertex
 
 };
 
-void GetTraingleInfo(osg::Vec3f* p1, osg::Vec3f* p2, osg::Vec3f* p3, TriangleInfo* res)
+
+//节点访问器，用于获取场景中节点的世界坐标,一阶更节点数组
+
+class GetWorldCoordOfNodeVisitor : public osg::NodeVisitor 
+{
+public:
+	GetWorldCoordOfNodeVisitor():
+	  osg::NodeVisitor(NodeVisitor::TRAVERSE_PARENTS), done(false)
+	  {
+		  wcMatrix= new osg::Matrixf();
+	  }
+	  virtual void apply(osg::Node &node)
+	  {
+		  if (!done)
+		  {
+			  if ( 0 == node.getNumParents() ) //到达根节点，此时节点路径也已记录完整
+			  {
+				  wcMatrix->set( osg::computeLocalToWorld(this->getNodePath()) );
+				  done = true;
+			  }
+			  traverse(node);
+		  }
+	  }
+	  osg::Matrixf* giveUpDaMat() 
+	  {
+		  return wcMatrix;
+	  }
+
+	 
+private:
+	bool done;
+	osg::Matrixf* wcMatrix;
+};
+
+// 对于场景中的合法节点，返回osg::Matrix格式的世界坐标。
+//用户创建用于更新世界坐标矩阵的访问器之后，既可获取该矩阵。
+// （此函数也可以作为节点派生类的成员函数。）
+
+osg::Matrixf* getWorldCoords( osg::Node* node) 
+{
+	GetWorldCoordOfNodeVisitor* ncv = new GetWorldCoordOfNodeVisitor();
+	if (node && ncv)
+	{
+		node->accept(*ncv);
+		return ncv->giveUpDaMat();
+	}
+	else
+	{
+		return NULL;
+	}
+} 
+
+
+
+void GetTraingleInfo(osg::Vec3f* p1, osg::Vec3f* p2, osg::Vec3f* p3, int ID, TriangleInfo* res)
 {
 	res->vecInfo[0] =(osg::Vec3f*) p1;
 	res->vecInfo[1] =(osg::Vec3f*) p2;
 	res->vecInfo[2] =(osg::Vec3f*) p3;
+
+	res->triangleID = ID;
 }
 
 
@@ -198,7 +303,9 @@ void GetTraingleInfo(osg::Vec3f* p1, osg::Vec3f* p2, osg::Vec3f* p3, TriangleInf
 //	return res;
 //}
 
-DrawableInfo* getTriangles(osg::Drawable& drawable, osg::ref_ptr<osg::Node> node)
+
+//获取集合体的三角片信息
+DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firstID)
 {
 	osg::TriangleFunctor<GetVertex> tf;
 	tf.vertexList=new osg::Vec3Array;
@@ -212,6 +319,10 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::ref_ptr<osg::Node> node
 	osg::Vec3f* p3 = new osg::Vec3f;
 
 	res->vertexList = tf.vertexList;
+	
+
+
+
 
 	int i = 1;
 	for(osg::Vec3Array::iterator itr=tf.vertexList->begin();
@@ -228,19 +339,24 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::ref_ptr<osg::Node> node
 		case 1:
 			p1 = new osg::Vec3f;
 			p1 = &(*itr);
+			*p1 = (*p1)*(*mat);
 			break;
 		case 2:
 			p2 = new osg::Vec3f;
 			p2 = &(*itr);
+			*p2 = (*p2)*(*mat);
 
 			break;
 		case 3:
 			p3 = new osg::Vec3f;
 			p3 = &(*itr);
+			*p3 = (*p3)*(*mat);
+
 
 			//	std::cout<<"================================"<<std::endl;
 			resTrianglesInfo = new TriangleInfo;
-			GetTraingleInfo(p1, p2, p3, resTrianglesInfo);
+			GetTraingleInfo(p1, p2, p3, firstID, resTrianglesInfo);
+			firstID++;
 			res->triangleInfoArray.push_back(&(*resTrianglesInfo));
 			//	std::cout<<std::endl;
 			i = 0;
@@ -294,6 +410,7 @@ void createGeode(TriangleInfo* triangleInfo, osg::Geode* geode)
 	polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,numCoords));
 	geode->addDrawable(polyGeom);
 }
+
 
 
 #endif
