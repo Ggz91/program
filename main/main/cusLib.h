@@ -91,7 +91,7 @@ struct DrawableInfo
 	/*std::vector<osg::ref_ptr<osg::Geode>> res_TP;
 	std::vector<osg::ref_ptr<osg::Geode>> res_AABB;*/
 	std::vector<TriangleInfo*> triangleInfoArray;
-	std::vector<TriangleCandidateSplitPlane*> triangleCandidateSplitPlane;
+	std::vector<TriangleCandidateSplitPlane> triangleCandidateSplitPlaneArray;
 	osg::Vec3Array* vertexList;
 };
 
@@ -370,9 +370,13 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firs
 			resTriangleCandidateSplitPlane = new TriangleCandidateSplitPlane;
 			GetTraingleInfo(p1, p2, p3, firstID, resTrianglesInfo);
 			resTriangleCandidateSplitPlane->triangleID = firstID;
+			resTriangleCandidateSplitPlane->xCandidateSplitPlane = resTrianglesInfo->GetXmin();
+			resTriangleCandidateSplitPlane->yCandidateSplitPlane = resTrianglesInfo->GetYmin();
+			resTriangleCandidateSplitPlane->zCandidateSplitPlane = resTrianglesInfo->GetZmin();
+
 			firstID++;
 			res->triangleInfoArray.push_back(&(*resTrianglesInfo));
-			res->triangleCandidateSplitPlane.push_back(&(*resTriangleCandidateSplitPlane));
+			res->triangleCandidateSplitPlaneArray.push_back(*resTriangleCandidateSplitPlane);
 			//	std::cout<<std::endl;
 			i = 0;
 			break;
@@ -427,5 +431,54 @@ void createGeode(TriangleInfo* triangleInfo, osg::Geode* geode)
 }
 
 
+bool checkErr(cl_int status, char* string)
+{
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<string<<std::endl;
+		system("echo =================================");
+		system("pause");
+		exit(0);
+	}
+	return true;
+}
+
+//获取比m大的最小的2次幂数
+int getMin2Power(int m)
+{
+	int res = 1;
+	while (res < m)
+	{
+		res<<=1;
+	}
+	return res;
+}
+
+//寻找最大值
+TriangleCandidateSplitPlane findMax(std::vector<TriangleCandidateSplitPlane> input)
+{
+	TriangleCandidateSplitPlane res = input[0];
+	for (auto it = input.begin(); it < input.end(); it++)
+	{
+		if ( it->xCandidateSplitPlane > res.xCandidateSplitPlane)
+		{
+			res = *it;
+		}
+	}
+	return res;
+}
+
+//最大值填充
+void fillTo2PowerScale(std::vector<TriangleCandidateSplitPlane> &input)
+{
+	int length = getMin2Power(input.size());
+	TriangleCandidateSplitPlane max = findMax(input);
+
+	for (int i = input.size(); i < length; i++)
+	{
+		input.push_back(max);
+	}
+
+};
 
 #endif

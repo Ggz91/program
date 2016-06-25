@@ -4,7 +4,7 @@
 #include <CL/cl.h>
 #include <vector>
 #include <fstream>
-
+#include <iomanip>
 #include "cusLib.h"
 
 
@@ -97,9 +97,11 @@ void main(int argc,char** argv[])
 	data[length] = 0;
 	const char* source = &data[0];
 
+	
+
 	cl_program program = clCreateProgramWithSource(context,1,&source,&length,&status);
 	//const char options[] = "-I F:\\learning\\program\\main\\main\\cusLib.h";
-	const char options[] ="";
+	const char options[] ="-cl-std=CL1.1";
 	status = clBuildProgram(program, 1, &deviceIds[0], options, 0, 0);
 
 	if (CL_SUCCESS != status)
@@ -110,6 +112,29 @@ void main(int argc,char** argv[])
 		system("pause");
 		exit(0);
 	}
+
+	cl_kernel kernel = clCreateKernel(program, "bitonicSort", &status);
+
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clCreateKernel error"<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+	cl_command_queue queue = clCreateCommandQueue(context, deviceIds[0], NULL, &status);
+
+	if (CL_SUCCESS != status)
+	{
+		std::cout<<"clCreateCommandQueue error!"<<std::endl;
+		system("pause");
+		exit(0);
+	}
+
+	system("echo ====================================================");	
+	system("echo the programs, kernels and command queues are built successfully!");
+	system("echo ====================================================");	
+	system("pause");
 
 	//载入两个实验结点
 	osg::ref_ptr<osg::Node> node1 = new osg::Node;
@@ -150,28 +175,105 @@ void main(int argc,char** argv[])
 	
 	
 	
-	system("echo the array of CandidatePlane has been prepared");
-	system("echo ====================================================");
-	system("pause");
+	
 
 	//将各子节点的三角面片以及AABB数组合并
 	DrawableInfo* all = new DrawableInfo;
 
 	di2->triangleInfoArray.insert(di2->triangleInfoArray.end(),di1->triangleInfoArray.begin(),di1->triangleInfoArray.end());
-	di2->triangleCandidateSplitPlane.insert(di2->triangleCandidateSplitPlane.end(),di1->triangleCandidateSplitPlane.begin(),di1->triangleCandidateSplitPlane.end());
+	di2->triangleCandidateSplitPlaneArray.insert(di2->triangleCandidateSplitPlaneArray.end(),di1->triangleCandidateSplitPlaneArray.begin(),di1->triangleCandidateSplitPlaneArray.end());
 	all->triangleInfoArray = di2->triangleInfoArray;
-	all->triangleCandidateSplitPlane = di2->triangleCandidateSplitPlane;
+	all->triangleCandidateSplitPlaneArray = di2->triangleCandidateSplitPlaneArray;
 
-	auto it = all->triangleInfoArray.begin();
+	/*auto it = all->triangleInfoArray.begin();
 	for(; it<all->triangleInfoArray.end(); it++)
 	{
-		osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
-		createGeode((*it), geodeTmp); 
-		root->addChild(geodeTmp);
+	osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
+	createGeode((*it), geodeTmp); 
+	root->addChild(geodeTmp);
 
-	}
+	}*/
 	
-	//root->addChild(group);
+	system("echo the array of CandidatePlane has been prepared");
+	system("echo ====================================================");
+	system("pause");
+
+	//使用OpenCL的方法给三角面片进行排序
+	int len = all->triangleCandidateSplitPlaneArray.size();
+	std::vector<TriangleCandidateSplitPlane> input = all->triangleCandidateSplitPlaneArray;
+	fillTo2PowerScale(input);
+
+	cl_mem inputMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(TriangleCandidateSplitPlane)*input.size(), &input[0], &status);
+	checkErr(status, "clCreateBuffer of inputMem error");
+	int dir = 1;
+	cl_mem dirMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &dir, &status);
+	checkErr(status, "clCreateBuffer of dirMem error");
+
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), &inputMem);
+	clSetKernelArg(kernel, 3, sizeof(cl_mem), &dirMem);
+
+	int ceil = input.size();
+	for(int i = 2; i <= ceil; i<<=1)
+	{
+		std::cout<<"i:"<<i<<std::endl;
+		std::cout<<"j:"<<"\t";
+		for (int j = i; j > 1; j>>=1)
+		{
+			int groupSize = ceil / j;
+			int flip = (j==i?1:-1);
+
+			const size_t global = 14;
+			const size_t local = 64;
+
+
+			cl_mem groupSizeMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &groupSize, &status);
+			cl_mem  lengthMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &j, &status);
+			cl_mem flipMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &flip, &status);
+			clSetKernelArg(kernel, 1, sizeof(cl_mem), &groupSizeMem);
+			clSetKernelArg(kernel, 2, sizeof(cl_mem), &lengthMem);
+			clSetKernelArg(kernel, 4, sizeof(cl_mem), &flipMem);
+
+			status = clEnqueueNDRangeKernel(queue, kernel, 1, 0, &global, &local, 0, 0, 0);
+			checkErr(status, "clEnqueueNDRangeKernel error");
+
+			clReleaseMemObject(groupSizeMem);
+			clReleaseMemObject(flipMem);
+			clReleaseMemObject(lengthMem);
+
+			std::cout<< j << "\t";
+		}
+		std::cout<<std::endl;
+	}
+
+	clFinish(queue);
+
+	std::vector<TriangleCandidateSplitPlane> res(len);
+	clEnqueueReadBuffer(queue, inputMem, CL_FALSE, 0,sizeof(TriangleCandidateSplitPlane)*len, &res[0], 0, 0, 0);
+
+	clReleaseKernel(kernel);
+	clReleaseProgram(program);
+	clReleaseMemObject(inputMem);
+	clReleaseMemObject(dirMem);
+	clReleaseCommandQueue(queue);
+	clReleaseContext(context);
+
+	system("echo ====================================================");	
+	system("echo the BitonicSort has finished!");
+	system("echo begin to print the reslut!");
+	system("echo ====================================================");
+	system("pause");
+
+	for (auto it = res.begin(); it < res.end(); it ++)
+	{
+		std::cout<<std::setprecision(8) <<it->xCandidateSplitPlane<<"\t";
+	}
+
+	std::cout<<std::endl;
+	system("echo ====================================================");	
+	system("echo the print of reslut has finished!");
+	system("echo ====================================================");
+	system("pause");
+	
 	//展示整个场景
 	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
 	viewer->setUpViewInWindow(500,200,1000,800);
