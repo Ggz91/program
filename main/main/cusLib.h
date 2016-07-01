@@ -19,7 +19,29 @@
 #include <osg/PolygonMode>
 #include <osg/LineWidth>
 
+//分割节点
+struct SplitNode
+{
+	int beg;
+	int end;
+	int leftChild;
+	int rightChild;
+	float xMin;
+	float xMax;
+	float yMin;
+	float yMax;
+	float zMin;
+	float zMax;
+};
 
+//初始化分割节点
+void InitialSplitNode(struct SplitNode *mNode)
+{
+	mNode->beg = -1;
+	mNode->end = -1;
+	mNode->leftChild = -1;
+	mNode->rightChild = -1;
+}
 
 //用来记录三家片相关信息的结构体
 struct TriangleInfo
@@ -43,6 +65,20 @@ struct TriangleInfo
 		return xTmp;
 	}
 
+	float GetXmax()
+	{
+		float xTmp = vecInfo[0]->x();
+		if(vecInfo[1]->x() > xTmp) 
+		{	
+			xTmp = vecInfo[1]->x();
+		}
+		if (vecInfo[2]->x() > xTmp)
+		{
+			xTmp = vecInfo[2]->x();
+		}
+
+		return xTmp;
+	}
 
 	float GetYmin()
 	{
@@ -52,6 +88,21 @@ struct TriangleInfo
 			yTmp = vecInfo[1]->y();
 		}
 		if (vecInfo[2]->y() < yTmp)
+		{
+			yTmp = vecInfo[2]->y();
+		}
+
+		return yTmp;
+	}
+
+	float GetYmax()
+	{
+		float yTmp = vecInfo[0]->y();
+		if(vecInfo[1]->y() > yTmp) 
+		{	
+			yTmp = vecInfo[1]->y();
+		}
+		if (vecInfo[2]->y() > yTmp)
 		{
 			yTmp = vecInfo[2]->y();
 		}
@@ -74,15 +125,33 @@ struct TriangleInfo
 		return zTmp;
 	}
 
+	float GetZmax()
+	{
+		float zTmp = vecInfo[0]->z();
+		if(vecInfo[1]->z() > zTmp) 
+		{	
+			zTmp = vecInfo[1]->z();
+		}
+		if (vecInfo[2]->z() > zTmp)
+		{
+			zTmp = vecInfo[2]->z();
+		}
+
+		return zTmp;
+	}
+
 };
 
 //用来记录三角面片ID以及候选分隔平面的结构体
 struct TriangleCandidateSplitPlane
 {
 	int triangleID;
-	float xCandidateSplitPlane;
-	float yCandidateSplitPlane;
-	float zCandidateSplitPlane;
+	float xMin;
+	float yMin;
+	float zMin;
+	float xMax;
+	float yMax;
+	float zMax;
 };
 
 //用来记录一个结点对应三角面片跟AABB等信息的结构体
@@ -370,10 +439,12 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firs
 			resTriangleCandidateSplitPlane = new TriangleCandidateSplitPlane;
 			GetTraingleInfo(p1, p2, p3, firstID, resTrianglesInfo);
 			resTriangleCandidateSplitPlane->triangleID = firstID;
-			resTriangleCandidateSplitPlane->xCandidateSplitPlane = resTrianglesInfo->GetXmin();
-			resTriangleCandidateSplitPlane->yCandidateSplitPlane = resTrianglesInfo->GetYmin();
-			resTriangleCandidateSplitPlane->zCandidateSplitPlane = resTrianglesInfo->GetZmin();
-
+			resTriangleCandidateSplitPlane->xMin = resTrianglesInfo->GetXmin();
+			resTriangleCandidateSplitPlane->yMin = resTrianglesInfo->GetYmin();
+			resTriangleCandidateSplitPlane->zMin = resTrianglesInfo->GetZmin();
+			resTriangleCandidateSplitPlane->xMax = resTrianglesInfo->GetXmax();
+			resTriangleCandidateSplitPlane->yMax = resTrianglesInfo->GetYmax();
+			resTriangleCandidateSplitPlane->zMax = resTrianglesInfo->GetZmax();
 			firstID++;
 			res->triangleInfoArray.push_back(&(*resTrianglesInfo));
 			res->triangleCandidateSplitPlaneArray.push_back(*resTriangleCandidateSplitPlane);
@@ -460,7 +531,7 @@ TriangleCandidateSplitPlane findMax(std::vector<TriangleCandidateSplitPlane> inp
 	TriangleCandidateSplitPlane res = input[0];
 	for (auto it = input.begin(); it < input.end(); it++)
 	{
-		if ( it->xCandidateSplitPlane > res.xCandidateSplitPlane)
+		if ( it->xMin > res.xMin)
 		{
 			res = *it;
 		}
@@ -480,5 +551,14 @@ void fillTo2PowerScale(std::vector<TriangleCandidateSplitPlane> &input)
 	}
 
 };
+
+
+//获取比childnNodeNum大的最小的以2为底的幂
+int GetNodeArrayMaxLength(int childNodeNum)
+{
+	int layerNum = log((float) childNodeNum) / log(2.0) + 1;
+	int maxNodeNum = pow(2.0, layerNum) - 1;
+	return maxNodeNum;
+}
 
 #endif

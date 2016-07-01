@@ -7,8 +7,9 @@
 #include <iomanip>
 #include "cusLib.h"
 
+#define T0 64
+#define NMAX 8
 
-//用来记录一个结点对应三角面片跟AABB的结构体
 
 void main(int argc,char** argv[])
 {
@@ -101,7 +102,7 @@ void main(int argc,char** argv[])
 
 	cl_program program = clCreateProgramWithSource(context,1,&source,&length,&status);
 	//const char options[] = "-I F:\\learning\\program\\main\\main\\cusLib.h";
-	const char options[] ="-cl-std=CL1.1";
+	const char options[] ="-cl-std=CL1.1 -D T0=64 -D NMAX=8";
 	status = clBuildProgram(program, 1, &deviceIds[0], options, 0, 0);
 
 	if (CL_SUCCESS != status)
@@ -113,7 +114,7 @@ void main(int argc,char** argv[])
 		exit(0);
 	}
 
-	cl_kernel kernel = clCreateKernel(program, "bitonicSort", &status);
+	cl_kernel kernel = clCreateKernel(program, "BitonicSort", &status);
 
 	if (CL_SUCCESS != status)
 	{
@@ -185,14 +186,14 @@ void main(int argc,char** argv[])
 	all->triangleInfoArray = di2->triangleInfoArray;
 	all->triangleCandidateSplitPlaneArray = di2->triangleCandidateSplitPlaneArray;
 
-	/*auto it = all->triangleInfoArray.begin();
+	osg::ref_ptr<osg::Group> node_tmp = new osg::Group;
+	auto it = all->triangleInfoArray.begin();
 	for(; it<all->triangleInfoArray.end(); it++)
 	{
-	osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
-	createGeode((*it), geodeTmp); 
-	root->addChild(geodeTmp);
-
-	}*/
+		osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
+		createGeode((*it), geodeTmp); 
+		node_tmp->addChild(geodeTmp);
+	}
 	
 	system("echo the array of CandidatePlane has been prepared");
 	system("echo ====================================================");
@@ -215,14 +216,14 @@ void main(int argc,char** argv[])
 	int ceil = input.size();
 	for(int i = 2; i <= ceil; i<<=1)
 	{
-		std::cout<<"i:"<<i<<std::endl;
-		std::cout<<"j:"<<"\t";
+		//std::cout<<"i:"<<i<<std::endl;
+		//std::cout<<"j:"<<"\t";
 		for (int j = i; j > 1; j>>=1)
 		{
 			int groupSize = ceil / j;
 			int flip = (j==i?1:-1);
 
-			const size_t global = 14;
+			const size_t global = 128;
 			const size_t local = 64;
 
 
@@ -240,19 +241,106 @@ void main(int argc,char** argv[])
 			clReleaseMemObject(flipMem);
 			clReleaseMemObject(lengthMem);
 
-			std::cout<< j << "\t";
+			//std::cout<< j << "\t";
 		}
-		std::cout<<std::endl;
+		//std::cout<<std::endl;
 	}
 
-	clFinish(queue);
 
-	std::vector<TriangleCandidateSplitPlane> res(len);
+	/*std::vector<TriangleCandidateSplitPlane> res(len);
 	clEnqueueReadBuffer(queue, inputMem, CL_FALSE, 0,sizeof(TriangleCandidateSplitPlane)*len, &res[0], 0, 0, 0);
+	for (auto it = res.begin(); it < res.end(); it ++)
+	{
+		std::cout<<std::setprecision(8) <<it->xCandidateSplitPlane<<"\t";
+	}*/
 
+	
+
+
+	//按照splitNode的结构来分割inputMem，并生成一个splitNode的数组
+	cl_kernel kernelSAHSplit = clCreateKernel(program, "SAHSplit", 0);
+	checkErr(status, "clCreateKernel of kernelSAHSplit error");
+	
+	clSetKernelArg(kernelSAHSplit, 0, sizeof(cl_mem), &inputMem);
+
+	int maxSplitNodeArrayLength = GetNodeArrayMaxLength(input.size());
+	SplitNode originSplitNode;
+	InitialSplitNode(&originSplitNode);
+	std::vector<SplitNode> splitNodeArray(maxSplitNodeArrayLength, originSplitNode);
+	SplitNode firstSplitNode;
+	firstSplitNode.beg = 0;
+	firstSplitNode.end = input.size() - 1;
+	firstSplitNode.leftChild = -1;
+	firstSplitNode.rightChild = -1;
+	firstSplitNode.xMax = input[0].xMax;
+	firstSplitNode.xMin = input[0].xMin;
+	firstSplitNode.yMax = input[0].yMax;
+	firstSplitNode.yMin = input[0].yMin;
+	firstSplitNode.zMax = input[0].zMax;
+	firstSplitNode.zMin = input[0].zMin;
+	splitNodeArray[0] = firstSplitNode;
+
+	cl_mem splitNodeArrayMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(SplitNode)*maxSplitNodeArrayLength, &splitNodeArray[0], &status);
+	checkErr(status, "clCreateBuffer of splitNodeArrayMem error");
+	
+	clSetKernelArg(kernelSAHSplit, 1, sizeof(cl_mem), &splitNodeArrayMem);
+
+
+	int maxLayerLenght = getMin2Power(input.size());
+	std::vector<int> randArray(maxLayerLenght);
+	for (int i = 0; i< maxLayerLenght; i++)
+	{
+		randArray[i] = rand() % maxLayerLenght;
+	}
+	cl_mem randArrayMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int)*maxLayerLenght, &randArray[0], &status);
+	clSetKernelArg(kernelSAHSplit, 4, sizeof(cl_mem), &randArrayMem);
+
+	std::vector<float> randPro(T0*NMAX);
+	for (int i = 0; i < randPro.size(); i++)
+	{
+		randPro[i] = (rand()%10)/10.0;
+		//std::cout<<randPro[i]<<std::endl;
+
+	}
+	cl_mem randProMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(float)*randPro.size(), &randPro[0], &status);
+	clSetKernelArg(kernelSAHSplit, 5, sizeof(cl_mem), &randProMem);
+
+
+	for(int i = 1; i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1; i++)
+	{
+		
+		int splitNodeArrayBeg = pow(2.0, i - 1) - 1;
+		int splitNodeArrayEnd = pow(2.0, i) - 2;
+		
+		size_t layerLength = splitNodeArrayEnd - splitNodeArrayBeg + 1;
+		const size_t globalSize = layerLength;
+		const size_t localSize = 64;
+		
+		
+
+		
+
+		cl_mem splitNodeArrayBegMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayBeg, &status);
+		checkErr(status, "clCreateBuffer of splitNodeArrayBegMem error");
+		cl_mem splitNodeArrayEndMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayEnd, &status);
+
+		clSetKernelArg(kernelSAHSplit, 2, sizeof(cl_mem), &splitNodeArrayBegMem);
+		clSetKernelArg(kernelSAHSplit, 3, sizeof(cl_mem), &splitNodeArrayEndMem);
+
+		status = clEnqueueNDRangeKernel(queue, kernelSAHSplit, 1, 0, &globalSize, &localSize, 0, NULL, NULL);
+
+		clReleaseMemObject(splitNodeArrayBegMem);
+		clReleaseMemObject(splitNodeArrayEndMem);
+	}
+
+	//释放资源
 	clReleaseKernel(kernel);
+	clReleaseKernel(kernelSAHSplit);
 	clReleaseProgram(program);
 	clReleaseMemObject(inputMem);
+	clReleaseMemObject(randProMem);
+	clReleaseMemObject(randArrayMem);
+	clReleaseMemObject(splitNodeArrayMem);
 	clReleaseMemObject(dirMem);
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
@@ -263,10 +351,7 @@ void main(int argc,char** argv[])
 	system("echo ====================================================");
 	system("pause");
 
-	for (auto it = res.begin(); it < res.end(); it ++)
-	{
-		std::cout<<std::setprecision(8) <<it->xCandidateSplitPlane<<"\t";
-	}
+	
 
 	std::cout<<std::endl;
 	system("echo ====================================================");	
@@ -275,6 +360,7 @@ void main(int argc,char** argv[])
 	system("pause");
 	
 	//展示整个场景
+	root->addChild(node_tmp);
 	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
 	viewer->setUpViewInWindow(500,200,1000,800);
 	viewer->setSceneData(root.get());
