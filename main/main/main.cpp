@@ -5,6 +5,7 @@
 #include <vector>
 #include <fstream>
 #include <iomanip>
+#include <Windows.h>
 #include "cusLib.h"
 
 #define T0 64
@@ -22,7 +23,7 @@ void main(int argc,char** argv[])
 	if (CL_SUCCESS != status)
 	{
 		std::cout<<"clGetPlatformsIDs error!"<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
@@ -35,7 +36,7 @@ void main(int argc,char** argv[])
 	if (CL_SUCCESS != status)
 	{
 		std::cout<<"clGetPlatformsIDs error!"<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
@@ -45,7 +46,7 @@ void main(int argc,char** argv[])
 	if (CL_SUCCESS != status)
 	{
 		std::cout<<"clGetDeviceIDs error!"<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
@@ -57,7 +58,7 @@ void main(int argc,char** argv[])
 	if (CL_SUCCESS != status)
 	{
 		std::cout<<"clGetDeviceIDs error!"<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
@@ -71,14 +72,14 @@ void main(int argc,char** argv[])
 		cl_context_info contextInfo;
 		clGetContextInfo(context,contextInfo,0x10000,tbuf,NULL);
 		std::cout<<tbuf<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
-	system("echo ====================================================");	
-	std::cout<<"The context of OpenCL is build successfully!"<<std::endl;
-	system("echo ====================================================");
-	system("pause");
+	//system("echo ====================================================");	
+	//std::cout<<"The context of OpenCL is build successfully!"<<std::endl;
+	//system("echo ====================================================");
+	//system("pause");
 
 	//载入kernel项目
 	std::ifstream file("kernel.cl",std::ios_base::binary);
@@ -86,7 +87,7 @@ void main(int argc,char** argv[])
 	if (!file.is_open())
 	{
 		std::cout<<"Error in the open of kernel file!"<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
@@ -110,7 +111,7 @@ void main(int argc,char** argv[])
 		std::cout<<"clBuildProgram error"<<std::endl;
 		clGetProgramBuildInfo(program,deviceIds[0],CL_PROGRAM_BUILD_LOG,0x10000,tbuf,NULL);
 		std::cout<<tbuf<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
@@ -119,7 +120,7 @@ void main(int argc,char** argv[])
 	if (CL_SUCCESS != status)
 	{
 		std::cout<<"clCreateKernel error"<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
@@ -128,14 +129,14 @@ void main(int argc,char** argv[])
 	if (CL_SUCCESS != status)
 	{
 		std::cout<<"clCreateCommandQueue error!"<<std::endl;
-		system("pause");
+		//system("pause");
 		exit(0);
 	}
 
-	system("echo ====================================================");	
-	system("echo the programs, kernels and command queues are built successfully!");
-	system("echo ====================================================");	
-	system("pause");
+	//system("echo ====================================================");	
+	//system("echo the programs, kernels and command queues are built successfully!");
+	//system("echo ====================================================");	
+	//system("pause");
 
 	//载入两个实验结点
 	osg::ref_ptr<osg::Node> node1 = new osg::Node;
@@ -195,9 +196,12 @@ void main(int argc,char** argv[])
 		node_tmp->addChild(geodeTmp);
 	}
 	
-	system("echo the array of CandidatePlane has been prepared");
-	system("echo ====================================================");
-	system("pause");
+	//system("echo the array of CandidatePlane has been prepared");
+	//system("echo ====================================================");
+	//system("pause");
+
+	DWORD beg = GetTickCount();
+
 
 	//使用OpenCL的方法给三角面片进行排序
 	int len = all->triangleCandidateSplitPlaneArray.size();
@@ -254,7 +258,11 @@ void main(int argc,char** argv[])
 		std::cout<<std::setprecision(8) <<it->xCandidateSplitPlane<<"\t";
 	}*/
 
-	
+	//system("echo ====================================================");	
+	//system("echo the BitonicSort has finished!");
+	//system("echo begin to print the reslut!");
+	//system("echo ====================================================");
+	//system("pause");
 
 
 	//按照splitNode的结构来分割inputMem，并生成一个splitNode的数组
@@ -269,7 +277,7 @@ void main(int argc,char** argv[])
 	std::vector<SplitNode> splitNodeArray(maxSplitNodeArrayLength, originSplitNode);
 	SplitNode firstSplitNode;
 	firstSplitNode.beg = 0;
-	firstSplitNode.end = input.size() - 1;
+	firstSplitNode.end = all->triangleInfoArray.size() - 1;
 	firstSplitNode.leftChild = -1;
 	firstSplitNode.rightChild = -1;
 	firstSplitNode.xMax = input[0].xMax;
@@ -305,6 +313,8 @@ void main(int argc,char** argv[])
 	cl_mem randProMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(float)*randPro.size(), &randPro[0], &status);
 	clSetKernelArg(kernelSAHSplit, 5, sizeof(cl_mem), &randProMem);
 
+	cl_mem maxSizeMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &maxSplitNodeArrayLength, &status);
+	clSetKernelArg(kernelSAHSplit, 6, sizeof(cl_mem), &maxSizeMem);
 
 	for(int i = 1; i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1; i++)
 	{
@@ -315,10 +325,6 @@ void main(int argc,char** argv[])
 		size_t layerLength = splitNodeArrayEnd - splitNodeArrayBeg + 1;
 		const size_t globalSize = layerLength;
 		const size_t localSize = 64;
-		
-		
-
-		
 
 		cl_mem splitNodeArrayBegMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayBeg, &status);
 		checkErr(status, "clCreateBuffer of splitNodeArrayBegMem error");
@@ -333,6 +339,12 @@ void main(int argc,char** argv[])
 		clReleaseMemObject(splitNodeArrayEndMem);
 	}
 
+	std::vector<SplitNode> nodeStructureArray(maxSplitNodeArrayLength);
+	clEnqueueReadBuffer(queue, splitNodeArrayMem, CL_TRUE, 0, sizeof(SplitNode)*nodeStructureArray.size(), &nodeStructureArray[0],0, 0, 0);
+	
+	
+
+
 	//释放资源
 	clReleaseKernel(kernel);
 	clReleaseKernel(kernelSAHSplit);
@@ -345,26 +357,26 @@ void main(int argc,char** argv[])
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
 
-	system("echo ====================================================");	
-	system("echo the BitonicSort has finished!");
-	system("echo begin to print the reslut!");
-	system("echo ====================================================");
-	system("pause");
-
+	
+	//system("echo ====================================================");	
+	//system("echo the splitNodeArray has finished!");
+	//system("echo ====================================================");
+	//system("pause");
+	
 	
 
-	std::cout<<std::endl;
-	system("echo ====================================================");	
-	system("echo the print of reslut has finished!");
-	system("echo ====================================================");
-	system("pause");
+	//分配面片
+	osg::ref_ptr<osg::Node> resNode = DistributeTrianglesNode(&nodeStructureArray[0], nodeStructureArray,all);
+	root->addChild(resNode);
 	
+	DWORD end = GetTickCount();
+	std::cout<<"the time diff is "<< end - beg <<std::endl;
 	//展示整个场景
-	root->addChild(node_tmp);
+	//root->addChild(node_tmp);
 	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
 	viewer->setUpViewInWindow(500,200,1000,800);
 	viewer->setSceneData(root.get());
 	viewer->run();
 	system("echo in the end");
-	system("pause");
+	//system("pause");
 }

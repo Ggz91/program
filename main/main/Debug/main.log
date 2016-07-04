@@ -1,34 +1,28 @@
-﻿生成启动时间为 7/1/2016 8:49:10 PM。
-     1>项目“F:\learning\program\main\main\main.vcxproj”在节点 2 上(rebuild 个目标)。
-     1>_PrepareForClean:
-         正在删除文件“Debug\main.lastbuildstate”。
-     1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\Microsoft.CppClean.targets(74,5): warning : 对路径“F:\LEARNING\PROGRAM\MAIN\DEBUG\MAIN.EXE”的访问被拒绝。
-     1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\Microsoft.CppClean.targets(74,5): warning : 对路径“F:\LEARNING\PROGRAM\MAIN\DEBUG\MAIN.PDB”的访问被拒绝。
-       InitializeBuildStatus:
+﻿生成启动时间为 7/4/2016 4:26:07 PM。
+     1>项目“F:\learning\program\main\main\main.vcxproj”在节点 2 上(build 个目标)。
+     1>InitializeBuildStatus:
          正在创建“Debug\main.unsuccessfulbuild”，因为已指定“AlwaysCreate”。
        ClCompile:
          F:\software\VS2010\VC\bin\CL.exe /c /I"C:\Program Files (x86)\Intel\OpenCL SDK\include" /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt main.cpp
          main.cpp
-     1>main.cpp(299): warning C4018: “<”: 有符号/无符号不匹配
-     1>f:\learning\program\main\main\main.cpp(72): warning C4700: 使用了未初始化的局部变量“contextInfo”
+     1>main.cpp(307): warning C4018: “<”: 有符号/无符号不匹配
+     1>f:\learning\program\main\main\main.cpp(73): warning C4700: 使用了未初始化的局部变量“contextInfo”
        ManifestResourceCompile:
-         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\rc.exe /nologo /fo"Debug\main.exe.embed.manifest.res" Debug\main_manifest.rc 
+         所有输出均为最新。
        Link:
          F:\software\VS2010\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"F:\learning\program\main\Debug\main.exe" /INCREMENTAL /NOLOGO /LIBPATH:"C:\Program Files (x86)\Intel\OpenCL SDK\lib\x86" OpenCL.lib OpenThreadsd.lib osgd.lib osgDBd.lib osgUtild.lib osgGAd.lib osgViewerd.lib osgTextd.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\main.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"F:\learning\program\main\Debug\main.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"F:\learning\program\main\Debug\main.lib" /MACHINE:X86 Debug\main.exe.embed.manifest.res
          Debug\main.obj
        Manifest:
-         正在删除文件“Debug\main.exe.embed.manifest”。
          C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /out:"Debug\main.exe.embed.manifest" /manifest Debug\main.exe.intermediate.manifest
-         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\rc.exe /nologo /fo"Debug\main.exe.embed.manifest.res" Debug\main_manifest.rc 
+         所有输出均为最新。
        LinkEmbedManifest:
-         F:\software\VS2010\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"F:\learning\program\main\Debug\main.exe" /INCREMENTAL /NOLOGO /LIBPATH:"C:\Program Files (x86)\Intel\OpenCL SDK\lib\x86" OpenCL.lib OpenThreadsd.lib osgd.lib osgDBd.lib osgUtild.lib osgGAd.lib osgViewerd.lib osgTextd.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\main.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"F:\learning\program\main\Debug\main.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"F:\learning\program\main\Debug\main.lib" /MACHINE:X86 Debug\main.exe.embed.manifest.res
-         Debug\main.obj
+         所有输出均为最新。
          main.vcxproj -> F:\learning\program\main\Debug\main.exe
        FinalizeBuildStatus:
          正在删除文件“Debug\main.unsuccessfulbuild”。
          正在对“Debug\main.lastbuildstate”执行 Touch 任务。
-     1>已完成生成项目“F:\learning\program\main\main\main.vcxproj”(rebuild 个目标)的操作。
+     1>已完成生成项目“F:\learning\program\main\main\main.vcxproj”(build 个目标)的操作。
 
 生成成功。
 
-已用时间 00:00:08.85
+已用时间 00:00:07.15

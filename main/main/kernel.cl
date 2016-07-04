@@ -102,11 +102,12 @@ __kernel void SAHSplit(global const struct TriangleCandidateSplitPlane* input,
 						global const int* splitNodeArrayBeg,
 						global const int* splitNodeArrayEnd,
 						global const int* randPos,
-						global const int* randPro
+						global const int* randPro,
+						global const int* maxSize
 						)
 {
 	int idx= get_global_id(0) + (*splitNodeArrayBeg);
-	printf("Beg:%d\t\tEnd:%d\t\tID:%d\t\t\nnodeBeg:%d\t\tnodeEnd:%d\t\t\n", *splitNodeArrayBeg, *splitNodeArrayEnd, idx, splitNodeArray[idx].beg, splitNodeArray[idx].end);
+	//printf("Beg:%d\t\tEnd:%d\t\tID:%d\t\t\nnodeBeg:%d\t\tnodeEnd:%d\t\t\n", *splitNodeArrayBeg, *splitNodeArrayEnd, idx, splitNodeArray[idx].beg, splitNodeArray[idx].end);
 	if((idx>= *splitNodeArrayBeg)&&(idx<= *splitNodeArrayEnd) && (splitNodeArray[idx].end - splitNodeArray[idx].beg > 64) && (splitNodeArray[idx].beg != -1) && (splitNodeArray[idx].end != -1))
 	{
 		splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
@@ -123,7 +124,7 @@ __kernel void SAHSplit(global const struct TriangleCandidateSplitPlane* input,
 		float currentSAH = ComputeSAH(currentPos, splitNodeArray, idx, input);
 		
 		//printf("Beg:%d\t\tEnd:%d\t\tID:%d\t\t\nnodeBeg:%d\t\tnodeEnd:%d\t\t\n", *splitNodeArrayBeg, *splitNodeArrayEnd, globalID, splitNodeArray[globalID].beg, splitNodeArray[globalID].end);
-		printf("before:\nrandPos:%d\t\tcurrentPos:%d\t\tcurrentSAH:%f\n",randPos[i-1], currentPos, currentSAH);
+		//printf("before:\nrandPos:%d\t\tcurrentPos:%d\t\tcurrentSAH:%f\n",randPos[i-1], currentPos, currentSAH);
 
 		int T = T0;
 		while(T > 1)
@@ -153,17 +154,21 @@ __kernel void SAHSplit(global const struct TriangleCandidateSplitPlane* input,
 			T = 0.5*T;
 		}//end while(T > 1)
 
-		printf("after:\nrandPos:%d\t\tcurrentPos:%d\t\tcurrentSAH:%f\n",randPos[i-1], currentPos, currentSAH);
+		//printf("after:\nrandPos:%d\t\tcurrentPos:%d\t\tcurrentSAH:%f\n",randPos[i-1], currentPos, currentSAH);
 
 		splitNodeArray[idx*2 + 1].beg = splitNodeArray[idx].beg;
 		splitNodeArray[idx*2 + 1].end = currentPos - 1;
 		splitNodeArray[idx*2 + 2].beg = currentPos;
 		splitNodeArray[idx*2 + 2].end = splitNodeArray[idx].end;
-		splitNodeArray[idx].leftChild = idx*2 + 1;
-		splitNodeArray[idx].rightChild = idx*2 + 2;
+		if((idx*2 + 2) < *maxSize)
+		{
+			splitNodeArray[idx].leftChild = idx*2 + 1;
+			splitNodeArray[idx].rightChild = idx*2 + 2;
+		}
+		
 		
 		
 	}
-	printf("\n");
+	//printf("\n");
 }
 

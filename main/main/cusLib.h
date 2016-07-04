@@ -561,4 +561,52 @@ int GetNodeArrayMaxLength(int childNodeNum)
 	return maxNodeNum;
 }
 
+//创建Geode
+osg::ref_ptr<osg::Geode> CreateNode(int no, DrawableInfo* all)
+{
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	osg::Geometry* polyGeom = new osg::Geometry;
+	osg::Vec3f myCoords[]=
+	{
+		*(all->triangleInfoArray[no]->vecInfo[0]),
+		*(all->triangleInfoArray[no]->vecInfo[1]),
+		*(all->triangleInfoArray[no]->vecInfo[2]),
+
+	};
+
+	int numCoords = sizeof(myCoords)/sizeof(osg::Vec3f);
+	osg::Vec3Array* vertices = new osg::Vec3Array(numCoords,myCoords);
+	polyGeom->setVertexArray(vertices);
+	polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,numCoords));
+	geode->addDrawable(polyGeom);
+	return geode;
+}
+
+//分配三角片信息
+osg::ref_ptr<osg::Node> DistributeTrianglesNode(SplitNode *node, std::vector<SplitNode> &splitNodeArray, DrawableInfo* all)
+{
+	osg::ref_ptr<osg::Group> group = new osg::Group;
+	if ((node->beg != -1) && (node->end != -1))
+	{
+		if ((node->leftChild != -1) && (node->rightChild != -1))
+		{
+			
+			
+			osg::ref_ptr<osg::Node> leftNode = DistributeTrianglesNode(&splitNodeArray[node->leftChild], splitNodeArray, all);
+			osg::ref_ptr<osg::Node> rightNode = DistributeTrianglesNode(&splitNodeArray[node->rightChild], splitNodeArray, all);
+			group->addChild(leftNode);
+			group->addChild(rightNode);
+		}
+		else 
+		{
+			for (int i = node->beg; i < node->end; i++)
+			{
+				osg::ref_ptr<osg::Geode> geode = CreateNode(i, all);
+				group->addChild(geode);
+			}
+		}
+	}
+	return group;
+}
+
 #endif
