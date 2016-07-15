@@ -200,7 +200,7 @@ void main(int argc,char** argv[])
 	//system("echo ====================================================");
 	//system("pause");
 
-	DWORD beg = GetTickCount();
+	DWORD sortBeg = GetTickCount();
 
 
 	//使用OpenCL的方法给三角面片进行排序
@@ -249,7 +249,8 @@ void main(int argc,char** argv[])
 		}
 		//std::cout<<std::endl;
 	}
-
+	DWORD sortEnd = GetTickCount();
+	std::cout<<"the sort diff is "<< sortEnd - sortBeg <<std::endl;
 
 	/*std::vector<TriangleCandidateSplitPlane> res(len);
 	clEnqueueReadBuffer(queue, inputMem, CL_FALSE, 0,sizeof(TriangleCandidateSplitPlane)*len, &res[0], 0, 0, 0);
@@ -264,6 +265,8 @@ void main(int argc,char** argv[])
 	//system("echo ====================================================");
 	//system("pause");
 
+
+	DWORD splitBeg = GetTickCount();
 
 	//按照splitNode的结构来分割inputMem，并生成一个splitNode的数组
 	cl_kernel kernelSAHSplit = clCreateKernel(program, "SAHSplit", 0);
@@ -339,6 +342,9 @@ void main(int argc,char** argv[])
 		clReleaseMemObject(splitNodeArrayEndMem);
 	}
 
+	DWORD splitEnd = GetTickCount();
+	std::cout<<"the split time diff is "<<splitEnd - splitBeg<<std::endl;
+
 	std::vector<SplitNode> nodeStructureArray(maxSplitNodeArrayLength);
 	clEnqueueReadBuffer(queue, splitNodeArrayMem, CL_TRUE, 0, sizeof(SplitNode)*nodeStructureArray.size(), &nodeStructureArray[0],0, 0, 0);
 	
@@ -364,19 +370,35 @@ void main(int argc,char** argv[])
 	//system("pause");
 	
 	
-
+	
 	//分配面片
 	osg::ref_ptr<osg::Node> resNode = DistributeTrianglesNode(&nodeStructureArray[0], nodeStructureArray,all);
-	root->addChild(resNode);
+	root->addChild(createLight(resNode.get()));
 	
-	DWORD end = GetTickCount();
-	std::cout<<"the time diff is "<< end - beg <<std::endl;
+	
 	//展示整个场景
 	//root->addChild(node_tmp);
 	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
 	viewer->setUpViewInWindow(500,200,1000,800);
 	viewer->setSceneData(root.get());
+	//viewer->run();
+
+	osg::Stats* stats = viewer->getCamera()->getStats();
+	stats->collectStats("rendering", true);
+	stats->collectStats("scene", true);
+	
+
+	viewer->realize();
+	int timeCount = 0;
 	viewer->run();
+	
+	double renderTime = 0;
+	double num = 0;
+	stats->getAveragedAttribute("Draw traversal time taken", renderTime, true);
+	stats->getAveragedAttribute("Visible number of lights", num, true);
+
+	std::cout<<"the render time is "<<std::setiosflags(std::ios::fixed)<<renderTime<<std::endl;
+	std::cout<<"the num is "<<std::setiosflags(std::ios::fixed)<<num<<std::endl;
 	system("echo in the end");
-	//system("pause");
+	system("pause");
 }

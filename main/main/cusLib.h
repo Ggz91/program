@@ -19,6 +19,15 @@
 #include <osg/PolygonMode>
 #include <osg/LineWidth>
 
+#include <osgManipulator/CommandManager>
+#include <osgManipulator/TranslateAxisDragger>
+
+#include <osg/Light>
+#include <osg/LightSource>
+#include <osg/BoundingSphere>
+#include <osg/BoundingBox>
+#include <osgUtil/Optimizer>
+
 //分割节点
 struct SplitNode
 {
@@ -607,6 +616,131 @@ osg::ref_ptr<osg::Node> DistributeTrianglesNode(SplitNode *node, std::vector<Spl
 		}
 	}
 	return group;
+}
+
+
+
+
+class PickModelHandler : public osgGA::GUIEventHandler
+{
+public:
+	PickModelHandler() : _activeDragger(0) {}
+
+	bool handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa, osg::Object*, osg::NodeVisitor* )
+	{
+		osgViewer::View* view = dynamic_cast<osgViewer::View*>( &aa );
+		if ( !view ) return false;
+
+		if ( (ea.getModKeyMask()&osgGA::GUIEventAdapter::MODKEY_SHIFT)==0 )
+			return false;
+
+		switch ( ea.getEventType() )
+		{
+		case osgGA::GUIEventAdapter::PUSH:
+			{
+				_pointer.reset();
+
+				osgUtil::LineSegmentIntersector::Intersections intersections;
+				if ( view->computeIntersections(ea.getX(), ea.getY(), intersections) )
+				{
+					_pointer.setCamera( view->getCamera() );
+					_pointer.setMousePosition( ea.getX(), ea.getY() );
+
+					for ( osgUtil::LineSegmentIntersector::Intersections::iterator hitr=intersections.begin();
+						hitr != intersections.end(); ++hitr)
+					{
+						_pointer.addIntersection( hitr->nodePath, hitr->getLocalIntersectPoint() );
+					}
+
+					for ( osg::NodePath::iterator itr=_pointer._hitList.front().first.begin();
+						itr != _pointer._hitList.front().first.end(); ++itr )
+					{
+						osgManipulator::Dragger* dragger = dynamic_cast<osgManipulator::Dragger*>( *itr );
+						if ( dragger )
+						{
+							dragger->handle( _pointer, ea, aa );
+							_activeDragger = dragger;
+							break;
+						}                   
+					}
+				}
+				break;
+			}
+
+		case osgGA::GUIEventAdapter::DRAG:
+		case osgGA::GUIEventAdapter::RELEASE:
+			{
+				if ( _activeDragger )
+				{
+					_pointer._hitIter = _pointer._hitList.begin();
+					_pointer.setCamera( view->getCamera() );
+					_pointer.setMousePosition( ea.getX(), ea.getY() );
+
+					_activeDragger->handle( _pointer, ea, aa );
+				}
+
+				if ( ea.getEventType()==osgGA::GUIEventAdapter::RELEASE )
+				{
+					_activeDragger = NULL;
+					_pointer.reset();
+				}
+				break;
+			}
+
+		default:
+			break;
+		}
+		return true;
+	}
+
+protected:
+	osgManipulator::Dragger* _activeDragger;
+	osgManipulator::PointerInfo _pointer;
+};
+
+//向场景中添加光源
+osg::ref_ptr<osg::Group> createLight(osg::ref_ptr<osg::Node> node)
+{
+	osg::ref_ptr<osg::Group> lightRoot= new osg::Group();
+	lightRoot->addChild(node);
+
+	//开启光照
+	osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet();
+	stateset = lightRoot->getOrCreateStateSet();
+	stateset->setMode(GL_LIGHTING,osg::StateAttribute::ON);
+	stateset->setMode(GL_LIGHT0,osg::StateAttribute::ON);
+
+	//计算包围盒
+	osg::BoundingSphere bs ;
+	node->computeBound() ;
+	bs=node->getBound() ;
+
+	//创建一个Light对象
+	osg::ref_ptr<osg::Light> light = new osg::Light();
+	light->setLightNum(0);
+	//设置方向
+	light->setDirection(osg::Vec3(0.0f,0.0f,-1.0f));
+	//设置位置
+	light->setPosition(osg::Vec4(bs.center().x(),bs.center().y(),bs.center().z()+bs.radius(),1.0f));
+	//设置环境光的颜色
+	light->setAmbient(osg::Vec4(0.0f,1.0f,1.0f,1.0f));
+	//设置散射光的颜色
+	light->setDiffuse(osg::Vec4(0.0f,1.0f,1.0f,1.0f));
+
+	//设置恒衰减指数
+	light->setConstantAttenuation(1.0f);
+	//设置线形衰减指数
+	light->setLinearAttenuation(0.0f);
+	//设置二次方衰减指数
+	light->setQuadraticAttenuation(0.0f);
+
+	//创建光源
+	osg::ref_ptr<osg::LightSource> lightSource = new osg::LightSource();
+	lightSource->setLight(light.get());
+
+	lightRoot->addChild(lightSource.get());
+
+	return lightRoot.get() ;
 }
 
 #endif
