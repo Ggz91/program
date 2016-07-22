@@ -10,7 +10,7 @@
 
 #define T0 64
 #define NMAX 8
-
+#define MAXDEPTH 20
 
 void main(int argc,char** argv[])
 {
@@ -187,15 +187,23 @@ void main(int argc,char** argv[])
 	all->triangleInfoArray = di2->triangleInfoArray;
 	all->triangleCandidateSplitPlaneArray = di2->triangleCandidateSplitPlaneArray;
 
-	osg::ref_ptr<osg::Group> node_tmp = new osg::Group;
+	osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
+	texture->setImage( osgDB::readImageFile("texImage.jpg") );
+	texture->setFilter( osg::Texture::MIN_FILTER, osg::Texture::LINEAR );
+	texture->setFilter( osg::Texture::MAG_FILTER, osg::Texture::LINEAR );
+	texture->setWrap( osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER );
+	texture->setWrap( osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER );
+	texture->setBorderColor( osg::Vec4(1.0, 1.0, 0.0, 1.0) );
+
+	/*osg::ref_ptr<osg::Group> node_tmp = new osg::Group;
 	auto it = all->triangleInfoArray.begin();
 	for(; it<all->triangleInfoArray.end(); it++)
 	{
-		osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
-		createGeode((*it), geodeTmp); 
-		node_tmp->addChild(geodeTmp);
+	osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
+	createGeode((*it), geodeTmp, texture); 
+	node_tmp->addChild(geodeTmp);
 	}
-	
+	*/
 	//system("echo the array of CandidatePlane has been prepared");
 	//system("echo ====================================================");
 	//system("pause");
@@ -318,8 +326,9 @@ void main(int argc,char** argv[])
 
 	cl_mem maxSizeMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &maxSplitNodeArrayLength, &status);
 	clSetKernelArg(kernelSAHSplit, 6, sizeof(cl_mem), &maxSizeMem);
-
-	for(int i = 1; i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1; i++)
+	
+	int depth = 0;
+	for(int i = 1; (i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1) && (depth < MAXDEPTH); i++)
 	{
 		
 		int splitNodeArrayBeg = pow(2.0, i - 1) - 1;
@@ -340,6 +349,7 @@ void main(int argc,char** argv[])
 
 		clReleaseMemObject(splitNodeArrayBegMem);
 		clReleaseMemObject(splitNodeArrayEndMem);
+		depth++;
 	}
 
 	DWORD splitEnd = GetTickCount();
@@ -372,7 +382,7 @@ void main(int argc,char** argv[])
 	
 	
 	//·ÖÅäÃæÆ¬
-	osg::ref_ptr<osg::Node> resNode = DistributeTrianglesNode(&nodeStructureArray[0], nodeStructureArray,all);
+	osg::ref_ptr<osg::Node> resNode = DistributeTrianglesNode(&nodeStructureArray[0], nodeStructureArray,all, texture);
 	root->addChild(createLight(resNode.get()));
 	
 	
@@ -383,22 +393,31 @@ void main(int argc,char** argv[])
 	viewer->setSceneData(root.get());
 	//viewer->run();
 
-	osg::Stats* stats = viewer->getCamera()->getStats();
-	stats->collectStats("rendering", true);
-	stats->collectStats("scene", true);
-	
-
-	viewer->realize();
-	int timeCount = 0;
+	osg::Stats* stats = viewer->getStats();
+	stats->collectStats("frame_rate", true);
 	viewer->run();
 	
 	double renderTime = 0;
 	double num = 0;
-	stats->getAveragedAttribute("Draw traversal time taken", renderTime, true);
-	stats->getAveragedAttribute("Visible number of lights", num, true);
+	
+	stats->getAveragedAttribute("Frame rate", renderTime, true);
 
 	std::cout<<"the render time is "<<std::setiosflags(std::ios::fixed)<<renderTime<<std::endl;
-	std::cout<<"the num is "<<std::setiosflags(std::ios::fixed)<<num<<std::endl;
+
+	osg::ref_ptr<osgViewer::Viewer> viewerSe =  new osgViewer::Viewer;
+	viewerSe->setUpViewInWindow(500,200,1000,800);
+
+	osg::ref_ptr<osg::Group> rootSe = new osg::Group;
+	rootSe->addChild(axes1);
+	rootSe->addChild(axes2);
+	viewerSe->setSceneData(rootSe.get());
+
+	osg::Stats* statsSe = viewerSe->getCamera()->getStats();
+	statsSe->collectStats("scene", true);
+	viewerSe->run();
+	statsSe->getAveragedAttribute("Visible number of GL_POINTS", renderTime, true);
+	std::cout<<"the render time is "<<std::setiosflags(std::ios::fixed)<<renderTime<<std::endl;
+	
 	system("echo in the end");
 	system("pause");
 }

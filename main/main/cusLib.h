@@ -28,6 +28,12 @@
 #include <osg/BoundingBox>
 #include <osgUtil/Optimizer>
 
+#include <osg/TexGen>
+#include <osg/Texture2D>
+#include <osg/TexEnv>
+
+#include <osg/Material>
+
 //分割节点
 struct SplitNode
 {
@@ -395,6 +401,7 @@ void GetTraingleInfo(osg::Vec3f* p1, osg::Vec3f* p2, osg::Vec3f* p3, int ID, Tri
 //获取集合体的三角片信息
 DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firstID)
 {
+	//使用TriangleFunctor获取三角片数据
 	osg::TriangleFunctor<GetVertex> tf;
 	tf.vertexList=new osg::Vec3Array;
 
@@ -409,14 +416,13 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firs
 	osg::Vec3f* p3 = new osg::Vec3f;
 
 	res->vertexList = tf.vertexList;
-	
 
 
 
 
 	int i = 1;
-	for(osg::Vec3Array::iterator itr=tf.vertexList->begin();
-		itr!=tf.vertexList->end();
+	for(osg::Vec3Array::iterator itr=res->vertexList->begin();
+		itr!=res->vertexList->end();
 		itr++)
 	{
 		//std::cout<<itr->x()<<" "<<itr->y()<<" "<<itr->z()<<std::endl;
@@ -469,6 +475,73 @@ DrawableInfo* getTriangles(osg::Drawable& drawable, osg::Matrixf* mat, int &firs
 		i++;
 	}
 
+	//使用getVectexArray的方法来获得三角面片数据
+	//TriangleInfo* resTrianglesInfo = new TriangleInfo;
+	//TriangleCandidateSplitPlane* resTriangleCandidateSplitPlane = new TriangleCandidateSplitPlane;
+	//DrawableInfo* res = new DrawableInfo;
+
+	//osg::Vec3f* p1 = new osg::Vec3f;
+	//osg::Vec3f* p2 = new osg::Vec3f;
+	//osg::Vec3f* p3 = new osg::Vec3f;
+
+	//res->vertexList =(osg::Vec3Array*) drawable.asGeometry()->getVertexArray();
+
+
+
+	//int i = 1;
+	//for(osg::Vec3Array::iterator itr=res->vertexList->begin();
+	//	itr!=res->vertexList->end();
+	//	itr++)
+	//{
+	//	//std::cout<<itr->x()<<" "<<itr->y()<<" "<<itr->z()<<std::endl;
+	//	//std::cout<<std::endl;
+
+	//	
+	//	switch(i)
+	//	{
+	//	case 1:
+	//		p1 = new osg::Vec3f;
+	//		p1 = &(*itr);
+	//		*p1 = (*p1)*(*mat);
+	//		break;
+	//	case 2:
+	//		p2 = new osg::Vec3f;
+	//		p2 = &(*itr);
+	//		*p2 = (*p2)*(*mat);
+
+	//		break;
+	//	default:
+	//		p3 = new osg::Vec3f;
+	//		p3 = &(*itr);
+	//		*p3 = (*p3)*(*mat);
+
+
+	//		//	std::cout<<"================================"<<std::endl;
+	//		resTrianglesInfo = new TriangleInfo;
+	//		resTriangleCandidateSplitPlane = new TriangleCandidateSplitPlane;
+	//		GetTraingleInfo(p1, p2, p3, firstID, resTrianglesInfo);
+	//		resTriangleCandidateSplitPlane->triangleID = firstID;
+	//		resTriangleCandidateSplitPlane->xMin = resTrianglesInfo->GetXmin();
+	//		resTriangleCandidateSplitPlane->yMin = resTrianglesInfo->GetYmin();
+	//		resTriangleCandidateSplitPlane->zMin = resTrianglesInfo->GetZmin();
+	//		resTriangleCandidateSplitPlane->xMax = resTrianglesInfo->GetXmax();
+	//		resTriangleCandidateSplitPlane->yMax = resTrianglesInfo->GetYmax();
+	//		resTriangleCandidateSplitPlane->zMax = resTrianglesInfo->GetZmax();
+	//		firstID++;
+	//		res->triangleInfoArray.push_back(&(*resTrianglesInfo));
+	//		res->triangleCandidateSplitPlaneArray.push_back(*resTriangleCandidateSplitPlane);
+	//		//	std::cout<<std::endl;
+	//		auto pTmp = p2;
+	//		p2 = p3;
+	//		p1 = pTmp;
+	//		break;
+	//	}
+
+
+
+	//	i++;
+	//}
+
 	//	std::cout<<std::endl;
 	return res;
 }
@@ -492,7 +565,7 @@ DrawableInfo* transDIfromLocalToWorld(DrawableInfo* di)
 
 }
 
-void createGeode(TriangleInfo* triangleInfo, osg::Geode* geode)
+void createGeode(TriangleInfo* triangleInfo, osg::Geode* geode,osg::ref_ptr<osg::Texture2D> texture)
 {
 	osg::Geometry* polyGeom = new osg::Geometry;
 	osg::Vec3f myCoords[]=
@@ -507,7 +580,18 @@ void createGeode(TriangleInfo* triangleInfo, osg::Geode* geode)
 	osg::Vec3Array* vertices = new osg::Vec3Array(numCoords,myCoords);
 	polyGeom->setVertexArray(vertices);
 	polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,numCoords));
+
+	osg::Vec2Array* texcoords = new osg::Vec2Array(3);
+	(*texcoords)[0].set(0, 0);
+	(*texcoords)[1].set(0, 1);
+	(*texcoords)[2].set(1, 0);
+	polyGeom->setTexCoordArray(0, texcoords);
+
 	geode->addDrawable(polyGeom);
+
+	osg::StateSet* state = geode->getOrCreateStateSet();
+	state->setTextureAttributeAndModes(0, texture.get(), osg::StateAttribute::ON);
+
 }
 
 
@@ -571,7 +655,7 @@ int GetNodeArrayMaxLength(int childNodeNum)
 }
 
 //创建Geode
-osg::ref_ptr<osg::Geode> CreateNode(int no, DrawableInfo* all)
+osg::ref_ptr<osg::Geode> CreateNode(int no, DrawableInfo* all, osg::ref_ptr<osg::Texture2D> texture)
 {
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	osg::Geometry* polyGeom = new osg::Geometry;
@@ -587,12 +671,35 @@ osg::ref_ptr<osg::Geode> CreateNode(int no, DrawableInfo* all)
 	osg::Vec3Array* vertices = new osg::Vec3Array(numCoords,myCoords);
 	polyGeom->setVertexArray(vertices);
 	polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,numCoords));
+
+	
+	osg::Vec2Array* texcoords = new osg::Vec2Array(3);
+	(*texcoords)[0].set(0, 0);
+	(*texcoords)[1].set(0, 0);
+	(*texcoords)[2].set(0, 0);
+	polyGeom->setTexCoordArray(0, texcoords);
+
 	geode->addDrawable(polyGeom);
+
+	osg::StateSet* state = geode->getOrCreateStateSet();
+
+	//创建材质对象
+	osg::ref_ptr<osg::Material> mat=new osg::Material;
+	//设置正面散射颜色
+	mat->setDiffuse(osg::Material::FRONT,osg::Vec4(1.0,0.0,0.0,1.0));
+	//设置正面镜面颜色
+	mat->setSpecular(osg::Material::FRONT,osg::Vec4(1.0,0.0,0.0,1.0));
+	//设置正面指数
+	mat->setShininess(osg::Material::FRONT,90.0);
+	state->setAttribute(mat.get());
+
+	state->setTextureAttributeAndModes(0, texture.get(), osg::StateAttribute::ON);
+
 	return geode;
 }
 
 //分配三角片信息
-osg::ref_ptr<osg::Node> DistributeTrianglesNode(SplitNode *node, std::vector<SplitNode> &splitNodeArray, DrawableInfo* all)
+osg::ref_ptr<osg::Node> DistributeTrianglesNode(SplitNode *node, std::vector<SplitNode> &splitNodeArray, DrawableInfo* all, osg::ref_ptr<osg::Texture2D> texture)
 {
 	osg::ref_ptr<osg::Group> group = new osg::Group;
 	if ((node->beg != -1) && (node->end != -1))
@@ -601,8 +708,8 @@ osg::ref_ptr<osg::Node> DistributeTrianglesNode(SplitNode *node, std::vector<Spl
 		{
 			
 			
-			osg::ref_ptr<osg::Node> leftNode = DistributeTrianglesNode(&splitNodeArray[node->leftChild], splitNodeArray, all);
-			osg::ref_ptr<osg::Node> rightNode = DistributeTrianglesNode(&splitNodeArray[node->rightChild], splitNodeArray, all);
+			osg::ref_ptr<osg::Node> leftNode = DistributeTrianglesNode(&splitNodeArray[node->leftChild], splitNodeArray, all, texture);
+			osg::ref_ptr<osg::Node> rightNode = DistributeTrianglesNode(&splitNodeArray[node->rightChild], splitNodeArray, all, texture);
 			group->addChild(leftNode);
 			group->addChild(rightNode);
 		}
@@ -610,7 +717,7 @@ osg::ref_ptr<osg::Node> DistributeTrianglesNode(SplitNode *node, std::vector<Spl
 		{
 			for (int i = node->beg; i < node->end; i++)
 			{
-				osg::ref_ptr<osg::Geode> geode = CreateNode(i, all);
+				osg::ref_ptr<osg::Geode> geode = CreateNode(i, all, texture);
 				group->addChild(geode);
 			}
 		}

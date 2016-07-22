@@ -151,7 +151,7 @@ __kernel void SAHSplit(global const struct TriangleCandidateSplitPlane* input,
 				}//endif(newSAH < currentSAH)
 				n++;
 			}//end while(n<8)
-			T = 0.5*T;
+			T = 0.2*T;
 		}//end while(T > 1)
 
 		//printf("after:\nrandPos:%d\t\tcurrentPos:%d\t\tcurrentSAH:%f\n",randPos[i-1], currentPos, currentSAH);
