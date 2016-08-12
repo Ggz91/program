@@ -15,16 +15,78 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <None Include="kernel.cl" />
+    <None Include="Shader.vs" />
+    <None Include="Shader.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\controls.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\objloader.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\quaternion_utils.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\shader.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\tangentspace.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\text2D.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\texture.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\vboindexer.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\GLFW\glfw3.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\OpenGLLib\include\GLFW\glfw3native.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="custom.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\controls.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\objloader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\quaternion_utils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\shader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\tangentspace.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\text2D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\texture.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\vboindexer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="kernel.cl" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="cusLib.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
+    <Library Include="..\..\..\OpenGLLib\lib\glew32.lib" />
+    <Library Include="..\..\..\OpenGLLib\lib\glew32s.lib" />
+    <Library Include="..\..\..\OpenGLLib\lib\glfw3.lib" />
+    <Library Include="..\..\..\OpenGLLib\lib\glfw3dll.lib" />
   </ItemGroup>
 </Project>

@@ -1,229 +1,174 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <vector>
+#include <fstream>
+
+#include <GL/glew.h>
+
+#include <GLFW/glfw3.h>
+GLFWwindow* window;
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+using namespace glm;
+
+#include <common/shader.hpp>
+#include <common/texture.hpp>
+#include <common/controls.hpp>
+#include <common/objloader.hpp>
+#include <common/vboindexer.hpp>
+
+#include <Windows.h>
 #include <iostream>
 
 #include <CL/cl.h>
-#include <vector>
-#include <fstream>
-#include <iomanip>
-#include <Windows.h>
-#include "cusLib.h"
+#include <CL/cl_gl.h>
 
-#define T0 64
-#define NMAX 8
-#define MAXDEPTH 20
+#include "custom.h"
 
-void main(int argc,char** argv[])
+void main(int argc, char** argv)
 {
+	
+	//创建Opengl显示窗口
+	if( !glfwInit())
+	{
+		checkErr(PRINT_INFO, "fail to init glfw!");
+		exit(0);
+	}
+
+	glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); 
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	window = glfwCreateWindow(1400, 1080, " OpenCL-OpenGL-Program", NULL, NULL);
+	if ( window == NULL)
+	{
+		checkErr(PRINT_INFO, "fail to open glfw window!");
+		glfwTerminate();
+		exit(0);
+	}
+	glfwMakeContextCurrent(window);
+
+	glewExperimental = true;
+	if ( glewInit() != GLEW_OK ) {
+		checkErr(PRINT_INFO, "fail to init glew");
+		glfwTerminate();
+		exit(0);
+	}
+
+	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	glfwPollEvents();
+	glfwSetCursorPos(window, 1400/2, 1080/2);
+
+	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS); 
+
+
+	GLuint VertexArrayID;
+	glGenVertexArrays(1, &VertexArrayID);
+	glBindVertexArray(VertexArrayID);
+
+
+	//读取obj文件的数据
+	std::vector<glm::vec3> vv3Verts;
+	std::vector<glm::vec2> vv2UVs;
+	std::vector<glm::vec3> vv3Nor;
+
+	bool bRes = loadOBJ("suzanne.obj", vv3Verts, vv2UVs, vv3Nor);
+
 	//设置OpenCL环境
-	cl_int status;
-	cl_uint platformNum;
-	char tbuf[0x10000];
+	cl_int uiStatus;
+	cl_uint	iPlatformNum;
+	uiStatus = clGetPlatformIDs(0, NULL, &iPlatformNum);
+	checkErr(uiStatus, "fail to get the num of platforms");
 
-	status = clGetPlatformIDs(0,NULL,&platformNum);
-	if (CL_SUCCESS != status)
-	{
-		std::cout<<"clGetPlatformsIDs error!"<<std::endl;
-		//system("pause");
-		exit(0);
-	}
+	std::vector<cl_platform_id> svPlatformIDs(iPlatformNum);
+	uiStatus = clGetPlatformIDs(iPlatformNum, &svPlatformIDs[0], NULL);
+	checkErr(uiStatus, "fail to get the ids of platforms");
 
-	std::cout<<"the number of valid platforms is :"<<platformNum<<std::endl;
-
-
-	std::vector<cl_platform_id>  platformIds(platformNum);
-	status = clGetPlatformIDs(platformNum,&platformIds[0],NULL);
-
-	if (CL_SUCCESS != status)
-	{
-		std::cout<<"clGetPlatformsIDs error!"<<std::endl;
-		//system("pause");
-		exit(0);
-	}
-
-	cl_uint deviceNum;
-	status = clGetDeviceIDs(platformIds[0], CL_DEVICE_TYPE_GPU, 0, 0, &deviceNum);
-
-	if (CL_SUCCESS != status)
-	{
-		std::cout<<"clGetDeviceIDs error!"<<std::endl;
-		//system("pause");
-		exit(0);
-	}
-
-	std::cout<<"the num of this platform's devices is :"<<deviceNum<<std::endl;
-
-	std::vector<cl_device_id> deviceIds(deviceNum);
-	status = clGetDeviceIDs(platformIds[0], CL_DEVICE_TYPE_GPU, 1, &deviceIds[0], NULL);
-
-	if (CL_SUCCESS != status)
-	{
-		std::cout<<"clGetDeviceIDs error!"<<std::endl;
-		//system("pause");
-		exit(0);
-	}
-
-
-	cl_context_properties prop[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platformIds[0], 0};
-	cl_context context = clCreateContextFromType(prop, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);
-
-	if (CL_SUCCESS != status)
-	{
-		std::cout<<"clCreateContextFromType error!"<<std::endl;
-		cl_context_info contextInfo;
-		clGetContextInfo(context,contextInfo,0x10000,tbuf,NULL);
-		std::cout<<tbuf<<std::endl;
-		//system("pause");
-		exit(0);
-	}
-
-	//system("echo ====================================================");	
-	//std::cout<<"The context of OpenCL is build successfully!"<<std::endl;
-	//system("echo ====================================================");
-	//system("pause");
-
-	//载入kernel项目
-	std::ifstream file("kernel.cl",std::ios_base::binary);
-
-	if (!file.is_open())
-	{
-		std::cout<<"Error in the open of kernel file!"<<std::endl;
-		//system("pause");
-		exit(0);
-	}
-
-	file.seekg(0,std::ios_base::end);
-	size_t length = file.tellg();
-	file.seekg(0,std::ios_base::beg);
-	std::vector<char> data(length+1);
-	file.read(&data[0],length);
-	data[length] = 0;
-	const char* source = &data[0];
-
+	cl_uint iDeviceNum;
+	uiStatus = clGetDeviceIDs(svPlatformIDs[0], CL_DEVICE_TYPE_GPU, 0, NULL, &iDeviceNum);
+	checkErr(uiStatus, "fail to get the num of device");
 	
+	std::vector<cl_device_id> svDeviceIDs(iDeviceNum);
+	uiStatus = clGetDeviceIDs(svPlatformIDs[0], CL_DEVICE_TYPE_GPU, iDeviceNum, &svDeviceIDs[0], NULL);
+	checkErr(uiStatus, "fail to get the ids of devices");
 
-	cl_program program = clCreateProgramWithSource(context,1,&source,&length,&status);
-	//const char options[] = "-I F:\\learning\\program\\main\\main\\cusLib.h";
-	const char options[] ="-cl-std=CL1.1 -D T0=64 -D NMAX=8";
-	status = clBuildProgram(program, 1, &deviceIds[0], options, 0, 0);
+	//创建OpenCL-OpenGL环境
+	cl_context_properties clProp[]={
+		CL_GL_CONTEXT_KHR,
+		(cl_context_properties)wglGetCurrentContext(),
+		CL_WGL_HDC_KHR,
+		(cl_context_properties)wglGetCurrentDC(),
+		CL_CONTEXT_PLATFORM,
+		(cl_context_properties)svPlatformIDs[0],
+		0
+	};
+	cl_context clContext = clCreateContext(clProp, 1, &svDeviceIDs[0], NULL, NULL, &uiStatus);
+	checkErr(uiStatus, "fail to creat the GL_CL clContext");
 
-	if (CL_SUCCESS != status)
+	std::ifstream ifFile("kernel.cl", std::ios_base::binary);
+
+	if ( !ifFile.is_open())
 	{
-		std::cout<<"clBuildProgram error"<<std::endl;
-		clGetProgramBuildInfo(program,deviceIds[0],CL_PROGRAM_BUILD_LOG,0x10000,tbuf,NULL);
-		std::cout<<tbuf<<std::endl;
-		//system("pause");
+		checkErr(PRINT_INFO, "fail to open kernel file");
+		exit(0);
+	}
+	size_t stFileLen;
+	ifFile.seekg(0, std::ios_base::end);
+	stFileLen = ifFile.tellg();
+	ifFile.seekg(0, std::ios_base::beg);
+	std::vector<char> svcData(stFileLen + 1);
+	ifFile.read(&svcData[0], stFileLen);
+	svcData[stFileLen] = 0;
+	const char *ccSource = &svcData[0];
+
+	cl_program clpProgram = clCreateProgramWithSource(clContext, 1,	&ccSource, &stFileLen, &uiStatus);
+	checkErr(uiStatus, "fail to create program");
+	const char ccOptions[] ="-cl-std=CL1.1 -D T0=64 -D NMAX=8";
+	uiStatus = clBuildProgram(clpProgram, 1, &svDeviceIDs[0], ccOptions, 0, 0);
+	if ( CL_SUCCESS != uiStatus )
+	{
+		char cInfo[0x10000];
+		checkErr(PRINT_INFO, "fail to build program");
+		clGetProgramBuildInfo(clpProgram, svDeviceIDs[0], CL_PROGRAM_BUILD_LOG, 0x10000, cInfo, NULL);
+		std::cerr<<cInfo<<std::endl;
+		system("pause");
 		exit(0);
 	}
 
-	cl_kernel kernel = clCreateKernel(program, "BitonicSort", &status);
+	cl_kernel clKernel = clCreateKernel(clpProgram, "BitonicSort", &uiStatus);
+	checkErr(uiStatus, "fail to create kernel");
 
-	if (CL_SUCCESS != status)
-	{
-		std::cout<<"clCreateKernel error"<<std::endl;
-		//system("pause");
-		exit(0);
-	}
+	cl_command_queue clQueue = clCreateCommandQueue(clContext, svDeviceIDs[0], NULL, &uiStatus);
+	checkErr(uiStatus, "fail to create queue");
 
-	cl_command_queue queue = clCreateCommandQueue(context, deviceIds[0], NULL, &status);
+	checkErr(PRINT_INFO, "complete the GL_CL clContext");
 
-	if (CL_SUCCESS != status)
-	{
-		std::cout<<"clCreateCommandQueue error!"<<std::endl;
-		//system("pause");
-		exit(0);
-	}
+	DrawableInfo* pRes = new DrawableInfo;
+	pRes = getTriangles(&vv3Verts[0], vv3Verts.size());
 
-	//system("echo ====================================================");	
-	//system("echo the programs, kernels and command queues are built successfully!");
-	//system("echo ====================================================");	
-	//system("pause");
-
-	//载入两个实验结点
-	osg::ref_ptr<osg::Node> node1 = new osg::Node;
-	osg::ref_ptr<osg::Node> node2 = new osg::Node;
-
-	node1 = osgDB::readNodeFile("cow.osg");
-	node2 = osgDB::readNodeFile("cessna.osg");
-
-	osg::ref_ptr<osg::MatrixTransform> axes1 = new osg::MatrixTransform;
-	osg::ref_ptr<osg::MatrixTransform> axes2 = new osg::MatrixTransform;
-
-	axes1->setMatrix(osg::Matrix::translate(5,20,20));
-	//axes1->setMatrix(osg::Matrix::translate(5,20,20)*osg::Matrix::rotate(osg::DegreesToRadians(30.0), 0, 0, 1));
-	axes2->setMatrix(osg::Matrix::translate(5,0,0));
-
-	axes1->addChild(node1);
-	axes2->addChild(node2);
-
-	osg::ref_ptr<osg::Group> group = new osg::Group;
-
-	group->addChild(axes1);
-	group->addChild(axes2);
-
-	osg::ref_ptr<osg::Group> root =  new osg::Group;
-	//root->addChild(group);
-	
-	//测试代码区
-	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	geode = node1->asGroup()->getChild(0)->asGeode();
-
-	//drawableInfo* di = getTriangles(*root->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGroup()->getChild(0)->asGeode()->getDrawable(0),root->getChild(0)->asGroup()->asGeode());
-	//获取子节点的三角面片及其AABB，并将三角面片以及AABB的坐标转换为世界坐标系
-	int ID = 0;//三角面片的ID，整个场景一起命名
-	osg::Matrixf* mat1 = getWorldCoords(group->getChild(0));
-	osg::Matrixf* mat2 = getWorldCoords(group->getChild(1));
- 	DrawableInfo* di1 = getTriangles(*node1->asGroup()->getChild(0)->asGeode()->getDrawable(0), mat1, ID);
-	DrawableInfo* di2 = getTriangles(*node2->asGroup()->getChild(0)->asGeode()->getDrawable(0), mat2, ID);
-	
-	
-	
-	
-
-	//将各子节点的三角面片以及AABB数组合并
-	DrawableInfo* all = new DrawableInfo;
-
-	di2->triangleInfoArray.insert(di2->triangleInfoArray.end(),di1->triangleInfoArray.begin(),di1->triangleInfoArray.end());
-	di2->triangleCandidateSplitPlaneArray.insert(di2->triangleCandidateSplitPlaneArray.end(),di1->triangleCandidateSplitPlaneArray.begin(),di1->triangleCandidateSplitPlaneArray.end());
-	all->triangleInfoArray = di2->triangleInfoArray;
-	all->triangleCandidateSplitPlaneArray = di2->triangleCandidateSplitPlaneArray;
-
-	osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D;
-	texture->setImage( osgDB::readImageFile("texImage.jpg") );
-	texture->setFilter( osg::Texture::MIN_FILTER, osg::Texture::LINEAR );
-	texture->setFilter( osg::Texture::MAG_FILTER, osg::Texture::LINEAR );
-	texture->setWrap( osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER );
-	texture->setWrap( osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER );
-	texture->setBorderColor( osg::Vec4(1.0, 1.0, 0.0, 1.0) );
-
-	/*osg::ref_ptr<osg::Group> node_tmp = new osg::Group;
-	auto it = all->triangleInfoArray.begin();
-	for(; it<all->triangleInfoArray.end(); it++)
-	{
-	osg::ref_ptr<osg::Geode> geodeTmp = new osg::Geode;
-	createGeode((*it), geodeTmp, texture); 
-	node_tmp->addChild(geodeTmp);
-	}
-	*/
-	//system("echo the array of CandidatePlane has been prepared");
-	//system("echo ====================================================");
-	//system("pause");
 
 	DWORD sortBeg = GetTickCount();
-
-
 	//使用OpenCL的方法给三角面片进行排序
-	int len = all->triangleCandidateSplitPlaneArray.size();
-	std::vector<TriangleCandidateSplitPlane> input = all->triangleCandidateSplitPlaneArray;
+	int len = pRes->triangleCandidateSplitPlaneArray.size();
+	std::vector<TriangleCandidateSplitPlane> input = pRes->triangleCandidateSplitPlaneArray;
 	fillTo2PowerScale(input);
 
-	cl_mem inputMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(TriangleCandidateSplitPlane)*input.size(), &input[0], &status);
-	checkErr(status, "clCreateBuffer of inputMem error");
+	cl_mem inputMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(TriangleCandidateSplitPlane)*input.size(), &input[0], &uiStatus);
+	checkErr(uiStatus, "clCreateBuffer of inputMem error");
 	int dir = 1;
-	cl_mem dirMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &dir, &status);
-	checkErr(status, "clCreateBuffer of dirMem error");
+	cl_mem dirMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &dir, &uiStatus);
+	checkErr(uiStatus, "clCreateBuffer of dirMem error");
 
-	clSetKernelArg(kernel, 0, sizeof(cl_mem), &inputMem);
-	clSetKernelArg(kernel, 3, sizeof(cl_mem), &dirMem);
+	clSetKernelArg(clKernel, 0, sizeof(cl_mem), &inputMem);
+	clSetKernelArg(clKernel, 3, sizeof(cl_mem), &dirMem);
 
 	int ceil = input.size();
 	for(int i = 2; i <= ceil; i<<=1)
@@ -239,15 +184,15 @@ void main(int argc,char** argv[])
 			const size_t local = 64;
 
 
-			cl_mem groupSizeMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &groupSize, &status);
-			cl_mem  lengthMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &j, &status);
-			cl_mem flipMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &flip, &status);
-			clSetKernelArg(kernel, 1, sizeof(cl_mem), &groupSizeMem);
-			clSetKernelArg(kernel, 2, sizeof(cl_mem), &lengthMem);
-			clSetKernelArg(kernel, 4, sizeof(cl_mem), &flipMem);
+			cl_mem groupSizeMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &groupSize, &uiStatus);
+			cl_mem  lengthMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &j, &uiStatus);
+			cl_mem flipMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &flip, &uiStatus);
+			clSetKernelArg(clKernel, 1, sizeof(cl_mem), &groupSizeMem);
+			clSetKernelArg(clKernel, 2, sizeof(cl_mem), &lengthMem);
+			clSetKernelArg(clKernel, 4, sizeof(cl_mem), &flipMem);
 
-			status = clEnqueueNDRangeKernel(queue, kernel, 1, 0, &global, &local, 0, 0, 0);
-			checkErr(status, "clEnqueueNDRangeKernel error");
+			uiStatus = clEnqueueNDRangeKernel(clQueue, clKernel, 1, 0, &global, &local, 0, 0, 0);
+			checkErr(uiStatus, "clEnqueueNDRangeKernel error");
 
 			clReleaseMemObject(groupSizeMem);
 			clReleaseMemObject(flipMem);
@@ -260,26 +205,13 @@ void main(int argc,char** argv[])
 	DWORD sortEnd = GetTickCount();
 	std::cout<<"the sort diff is "<< sortEnd - sortBeg <<std::endl;
 
-	/*std::vector<TriangleCandidateSplitPlane> res(len);
-	clEnqueueReadBuffer(queue, inputMem, CL_FALSE, 0,sizeof(TriangleCandidateSplitPlane)*len, &res[0], 0, 0, 0);
-	for (auto it = res.begin(); it < res.end(); it ++)
-	{
-		std::cout<<std::setprecision(8) <<it->xCandidateSplitPlane<<"\t";
-	}*/
-
-	//system("echo ====================================================");	
-	//system("echo the BitonicSort has finished!");
-	//system("echo begin to print the reslut!");
-	//system("echo ====================================================");
-	//system("pause");
-
-
 	DWORD splitBeg = GetTickCount();
 
+	clFinish(clQueue);
 	//按照splitNode的结构来分割inputMem，并生成一个splitNode的数组
-	cl_kernel kernelSAHSplit = clCreateKernel(program, "SAHSplit", 0);
-	checkErr(status, "clCreateKernel of kernelSAHSplit error");
-	
+	cl_kernel kernelSAHSplit = clCreateKernel(clpProgram, "SAHSplit", 0);
+	checkErr(uiStatus, "clCreateKernel of kernelSAHSplit error");
+
 	clSetKernelArg(kernelSAHSplit, 0, sizeof(cl_mem), &inputMem);
 
 	int maxSplitNodeArrayLength = GetNodeArrayMaxLength(input.size());
@@ -288,7 +220,7 @@ void main(int argc,char** argv[])
 	std::vector<SplitNode> splitNodeArray(maxSplitNodeArrayLength, originSplitNode);
 	SplitNode firstSplitNode;
 	firstSplitNode.beg = 0;
-	firstSplitNode.end = all->triangleInfoArray.size() - 1;
+	firstSplitNode.end = pRes->triangleInfoArray.size() - 1;
 	firstSplitNode.leftChild = -1;
 	firstSplitNode.rightChild = -1;
 	firstSplitNode.xMax = input[0].xMax;
@@ -299,9 +231,9 @@ void main(int argc,char** argv[])
 	firstSplitNode.zMin = input[0].zMin;
 	splitNodeArray[0] = firstSplitNode;
 
-	cl_mem splitNodeArrayMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(SplitNode)*maxSplitNodeArrayLength, &splitNodeArray[0], &status);
-	checkErr(status, "clCreateBuffer of splitNodeArrayMem error");
-	
+	cl_mem splitNodeArrayMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(SplitNode)*maxSplitNodeArrayLength, &splitNodeArray[0], &uiStatus);
+	checkErr(uiStatus, "clCreateBuffer of splitNodeArrayMem error");
+
 	clSetKernelArg(kernelSAHSplit, 1, sizeof(cl_mem), &splitNodeArrayMem);
 
 
@@ -311,7 +243,7 @@ void main(int argc,char** argv[])
 	{
 		randArray[i] = rand() % maxLayerLenght;
 	}
-	cl_mem randArrayMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int)*maxLayerLenght, &randArray[0], &status);
+	cl_mem randArrayMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int)*maxLayerLenght, &randArray[0], &uiStatus);
 	clSetKernelArg(kernelSAHSplit, 4, sizeof(cl_mem), &randArrayMem);
 
 	std::vector<float> randPro(T0*NMAX);
@@ -321,31 +253,31 @@ void main(int argc,char** argv[])
 		//std::cout<<randPro[i]<<std::endl;
 
 	}
-	cl_mem randProMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(float)*randPro.size(), &randPro[0], &status);
+	cl_mem randProMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(float)*randPro.size(), &randPro[0], &uiStatus);
 	clSetKernelArg(kernelSAHSplit, 5, sizeof(cl_mem), &randProMem);
 
-	cl_mem maxSizeMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &maxSplitNodeArrayLength, &status);
+	cl_mem maxSizeMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &maxSplitNodeArrayLength, &uiStatus);
 	clSetKernelArg(kernelSAHSplit, 6, sizeof(cl_mem), &maxSizeMem);
-	
+
 	int depth = 0;
 	for(int i = 1; (i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1) && (depth < MAXDEPTH); i++)
 	{
-		
+
 		int splitNodeArrayBeg = pow(2.0, i - 1) - 1;
 		int splitNodeArrayEnd = pow(2.0, i) - 2;
-		
+
 		size_t layerLength = splitNodeArrayEnd - splitNodeArrayBeg + 1;
 		const size_t globalSize = layerLength;
 		const size_t localSize = 64;
 
-		cl_mem splitNodeArrayBegMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayBeg, &status);
-		checkErr(status, "clCreateBuffer of splitNodeArrayBegMem error");
-		cl_mem splitNodeArrayEndMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayEnd, &status);
+		cl_mem splitNodeArrayBegMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayBeg, &uiStatus);
+		checkErr(uiStatus, "clCreateBuffer of splitNodeArrayBegMem error");
+		cl_mem splitNodeArrayEndMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayEnd, &uiStatus);
 
 		clSetKernelArg(kernelSAHSplit, 2, sizeof(cl_mem), &splitNodeArrayBegMem);
 		clSetKernelArg(kernelSAHSplit, 3, sizeof(cl_mem), &splitNodeArrayEndMem);
 
-		status = clEnqueueNDRangeKernel(queue, kernelSAHSplit, 1, 0, &globalSize, &localSize, 0, NULL, NULL);
+		uiStatus = clEnqueueNDRangeKernel(clQueue, kernelSAHSplit, 1, 0, &globalSize, &localSize, 0, NULL, NULL);
 
 		clReleaseMemObject(splitNodeArrayBegMem);
 		clReleaseMemObject(splitNodeArrayEndMem);
@@ -356,68 +288,86 @@ void main(int argc,char** argv[])
 	std::cout<<"the split time diff is "<<splitEnd - splitBeg<<std::endl;
 
 	std::vector<SplitNode> nodeStructureArray(maxSplitNodeArrayLength);
-	clEnqueueReadBuffer(queue, splitNodeArrayMem, CL_TRUE, 0, sizeof(SplitNode)*nodeStructureArray.size(), &nodeStructureArray[0],0, 0, 0);
-	
-	
+	clEnqueueReadBuffer(clQueue, splitNodeArrayMem, CL_TRUE, 0, sizeof(SplitNode)*nodeStructureArray.size(), &nodeStructureArray[0],0, 0, 0);
 
+
+	clFinish(clQueue);
 
 	//释放资源
-	clReleaseKernel(kernel);
+	clReleaseKernel(clKernel);
 	clReleaseKernel(kernelSAHSplit);
-	clReleaseProgram(program);
+	clReleaseProgram(clpProgram);
 	clReleaseMemObject(inputMem);
 	clReleaseMemObject(randProMem);
 	clReleaseMemObject(randArrayMem);
 	clReleaseMemObject(splitNodeArrayMem);
 	clReleaseMemObject(dirMem);
-	clReleaseCommandQueue(queue);
-	clReleaseContext(context);
+	clReleaseCommandQueue(clQueue);
+	//clReleaseContext(clContext);
+
+	//开始绘制图像
+	GLuint uiVertexBuffer;
+	glGenBuffers(1, &uiVertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, uiVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, vv3Verts.size()*sizeof(glm::vec3), &vv3Verts[0], GL_STATIC_DRAW);
+
+	GLuint uiUVbuffer;
+	glGenBuffers(1, &uiUVbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, uiVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, vv2UVs.size()*sizeof(glm::vec2), &vv2UVs[0], GL_STATIC_DRAW);
+
+	GLuint uiNormalBuffer;
+	glGenBuffers(1, &uiNormalBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, uiNormalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, vv3Nor.size()*sizeof(glm::vec3), &vv3Nor[0], GL_STATIC_DRAW);
+
+	GLuint uiProgram = LoadShaders("Shader.vs", "Shader.fs");
+	//GLuint uiText = loadDDS("uvmap.DDS");
 
 	
-	//system("echo ====================================================");	
-	//system("echo the splitNodeArray has finished!");
-	//system("echo ====================================================");
-	//system("pause");
-	
-	
-	
-	//分配面片
-	osg::ref_ptr<osg::Node> resNode = DistributeTrianglesNode(&nodeStructureArray[0], nodeStructureArray,all, texture);
-	root->addChild(createLight(resNode.get()));
-	
-	
-	//展示整个场景
-	//root->addChild(node_tmp);
-	osg::ref_ptr<osgViewer::Viewer> viewer =  new osgViewer::Viewer;
-	viewer->setUpViewInWindow(500,200,1000,800);
-	viewer->setSceneData(root.get());
-	//viewer->run();
 
-	osg::Stats* stats = viewer->getStats();
-	stats->collectStats("frame_rate", true);
-	viewer->run();
+	GLuint uiMatrixID = glGetUniformLocation(uiProgram, "MVP");
+	GLuint uiViewMatrixID = glGetUniformLocation(uiProgram, "V");
+	GLuint uiModelMatrixID = glGetUniformLocation(uiProgram, "M");
+
+
 	
-	double renderTime = 0;
-	double num = 0;
+
+	do 
+	{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glUseProgram(uiProgram);
+
+		computeMatricesFromInputs();
+		glm::mat4 ProjectionMatrix = getProjectionMatrix();
+		glm::mat4 ViewMatrix = getViewMatrix();
+		glm::mat4 ModelMatrix = glm::mat4(1.0);
+		glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+		
+		glUniformMatrix4fv(uiMatrixID, 1, GL_FALSE, &MVP[0][0]);
+		glUniformMatrix4fv(uiModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
+		glUniformMatrix4fv(uiViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+
+		glEnableVertexAttribArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, uiVertexBuffer);
+		glVertexAttribPointer(
+			0,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			(void*)0
+		);
+
+		glDrawArrays(GL_TRIANGLES, 0, vv3Verts.size());
+		glDisableVertexAttribArray(0);
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	} while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(window) == 0);
+
+	glfwTerminate();
+
 	
-	stats->getAveragedAttribute("Frame rate", renderTime, true);
-
-	std::cout<<"the render time is "<<std::setiosflags(std::ios::fixed)<<renderTime<<std::endl;
-
-	osg::ref_ptr<osgViewer::Viewer> viewerSe =  new osgViewer::Viewer;
-	viewerSe->setUpViewInWindow(500,200,1000,800);
-
-	osg::ref_ptr<osg::Group> rootSe = new osg::Group;
-	rootSe->addChild(axes1);
-	rootSe->addChild(axes2);
-	viewerSe->setSceneData(rootSe.get());
-
-	osg::Stats* statsSe = viewerSe->getCamera()->getStats();
-	statsSe->collectStats("scene", true);
-	viewerSe->run();
-	statsSe->getAveragedAttribute("Visible number of GL_POINTS", renderTime, true);
-	std::cout<<"the render time is "<<std::setiosflags(std::ios::fixed)<<renderTime<<std::endl;
-	
-	system("echo in the end");
-	system("pause");
 }
+
+

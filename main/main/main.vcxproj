@@ -20,6 +20,8 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>false</UseOfMfc>
+    <UseOfAtl>Dynamic</UseOfAtl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -39,8 +41,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>F:\software\OSG\OSG\OSG\include;$(IncludePath)</IncludePath>
-    <LibraryPath>F:\software\OSG\OSG\OSG\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>F:\learning\OpenGLLib\include;$(IncludePath)</IncludePath>
+    <LibraryPath>F:\learning\OpenGLLib\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -49,17 +51,19 @@
     <ClCompile>
       <PrecompiledHeader>
       </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Program Files %28x86%29\Intel\OpenCL SDK\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OpenCL.lib;OpenThreadsd.lib;osgd.lib;osgDBd.lib;osgUtild.lib;osgGAd.lib;osgViewerd.lib;osgTextd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OpenCL.lib;glew32.lib;Opengl32.lib;glfw3.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Program Files %28x86%29\Intel\OpenCL SDK\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries>MSVCRT</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -80,9 +84,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
@@ -91,9 +92,38 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="kernel.cl" />
+    <None Include="Shader.fs" />
+    <None Include="Shader.vs" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cusLib.h" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\controls.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\objloader.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\quaternion_utils.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\shader.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\tangentspace.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\text2D.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\texture.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\common\vboindexer.hpp" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\GLFW\glfw3.h" />
+    <ClInclude Include="..\..\..\OpenGLLib\include\GLFW\glfw3native.h" />
+    <ClInclude Include="custom.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\controls.cpp" />
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\objloader.cpp" />
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\quaternion_utils.cpp" />
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\shader.cpp" />
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\tangentspace.cpp" />
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\text2D.cpp" />
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\texture.cpp" />
+    <ClCompile Include="..\..\..\OpenGLLib\include\common\vboindexer.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\OpenGLLib\lib\glew32.lib" />
+    <Library Include="..\..\..\OpenGLLib\lib\glew32s.lib" />
+    <Library Include="..\..\..\OpenGLLib\lib\glfw3.lib" />
+    <Library Include="..\..\..\OpenGLLib\lib\glfw3dll.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

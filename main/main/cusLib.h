@@ -34,6 +34,12 @@
 
 #include <osg/Material>
 
+
+typedef enum 
+{
+	PRINT_INFO = 0xf00000,
+};
+
 //·Ö¸î½Úµã
 struct SplitNode
 {
@@ -597,6 +603,12 @@ void createGeode(TriangleInfo* triangleInfo, osg::Geode* geode,osg::ref_ptr<osg:
 
 bool checkErr(cl_int status, char* string)
 {
+	if ( PRINT_INFO == status)
+	{
+		std::cout<<string<<std::endl;
+		system("echo =================================");
+		system("pause");
+	}
 	if (CL_SUCCESS != status)
 	{
 		std::cout<<string<<std::endl;
