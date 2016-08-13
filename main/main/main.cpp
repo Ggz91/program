@@ -42,7 +42,7 @@ void main(int argc, char** argv)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); 
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	window = glfwCreateWindow(1400, 1080, " OpenCL-OpenGL-Program", NULL, NULL);
+	window = glfwCreateWindow(1024, 768, " OpenCL-OpenGL-Program", NULL, NULL);
 	if ( window == NULL)
 	{
 		checkErr(PRINT_INFO, "fail to open glfw window!");
@@ -62,18 +62,7 @@ void main(int argc, char** argv)
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	glfwPollEvents();
-	glfwSetCursorPos(window, 1400/2, 1080/2);
-
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS); 
-
-
-	GLuint VertexArrayID;
-	glGenVertexArrays(1, &VertexArrayID);
-	glBindVertexArray(VertexArrayID);
-
+	glfwSetCursorPos(window, 1024/2, 768/2);
 
 	//读取obj文件的数据
 	std::vector<glm::vec3> vv3Verts;
@@ -306,14 +295,27 @@ void main(int argc, char** argv)
 	//clReleaseContext(clContext);
 
 	//开始绘制图像
+	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS); 
+
+
+	GLuint VertexArrayID;
+	glGenVertexArrays(1, &VertexArrayID);
+	glBindVertexArray(VertexArrayID);
+
+
+	
+
 	GLuint uiVertexBuffer;
 	glGenBuffers(1, &uiVertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, uiVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, vv3Verts.size()*sizeof(glm::vec3), &vv3Verts[0], GL_STATIC_DRAW);
 
-	GLuint uiUVbuffer;
-	glGenBuffers(1, &uiUVbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, uiVertexBuffer);
+	GLuint uiUVBuffer;
+	glGenBuffers(1, &uiUVBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, uiUVBuffer);
 	glBufferData(GL_ARRAY_BUFFER, vv2UVs.size()*sizeof(glm::vec2), &vv2UVs[0], GL_STATIC_DRAW);
 
 	GLuint uiNormalBuffer;
@@ -322,7 +324,6 @@ void main(int argc, char** argv)
 	glBufferData(GL_ARRAY_BUFFER, vv3Nor.size()*sizeof(glm::vec3), &vv3Nor[0], GL_STATIC_DRAW);
 
 	GLuint uiProgram = LoadShaders("Shader.vs", "Shader.fs");
-	//GLuint uiText = loadDDS("uvmap.DDS");
 
 	
 
@@ -330,8 +331,11 @@ void main(int argc, char** argv)
 	GLuint uiViewMatrixID = glGetUniformLocation(uiProgram, "V");
 	GLuint uiModelMatrixID = glGetUniformLocation(uiProgram, "M");
 
-
+	GLuint uiText = loadDDS("uvmap.DDS");
+	GLuint uiTextID = glGetUniformLocation(uiProgram, "textSampler");
 	
+	GLuint uiLightID = glGetUniformLocation(uiProgram, "LightPos");
+
 
 	do 
 	{
@@ -348,6 +352,13 @@ void main(int argc, char** argv)
 		glUniformMatrix4fv(uiModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
 		glUniformMatrix4fv(uiViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, uiText);
+		glUniform1i(uiTextID, 0);
+
+		glm::vec3 v3Light = glm::vec3(4, 4, 0);
+		glUniform3f(uiLightID, v3Light.x, v3Light.y, v3Light.z);
+
 		glEnableVertexAttribArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, uiVertexBuffer);
 		glVertexAttribPointer(
@@ -359,8 +370,34 @@ void main(int argc, char** argv)
 			(void*)0
 		);
 
+		glEnableVertexAttribArray(1);
+		glBindBuffer(GL_ARRAY_BUFFER, uiUVBuffer);
+		glVertexAttribPointer(
+			1,
+			2,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			(void*)0
+		);
+
+		glEnableVertexAttribArray(2);
+		glBindBuffer(GL_ARRAY_BUFFER, uiNormalBuffer);
+		glVertexAttribPointer(
+			2,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			(void*)0
+		);
+
 		glDrawArrays(GL_TRIANGLES, 0, vv3Verts.size());
+
 		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(2);
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	} while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(window) == 0);
