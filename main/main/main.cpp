@@ -26,6 +26,9 @@ using namespace glm;
 
 #include "custom.h"
 
+int iWinWidth = 1024;
+int iWinHeight = 768;
+
 void main(int argc, char** argv)
 {
 	
@@ -42,7 +45,7 @@ void main(int argc, char** argv)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); 
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	window = glfwCreateWindow(1024, 768, " OpenCL-OpenGL-Program", NULL, NULL);
+	window = glfwCreateWindow(iWinWidth, iWinHeight, " OpenCL-OpenGL-Program", NULL, NULL);
 	if ( window == NULL)
 	{
 		checkErr(PRINT_INFO, "fail to open glfw window!");
@@ -62,7 +65,7 @@ void main(int argc, char** argv)
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	glfwPollEvents();
-	glfwSetCursorPos(window, 1024/2, 768/2);
+	glfwSetCursorPos(window, iWinWidth/2, iWinHeight/2);
 
 	//读取obj文件的数据
 	std::vector<glm::vec3> vv3Verts;
@@ -276,8 +279,8 @@ void main(int argc, char** argv)
 	DWORD splitEnd = GetTickCount();
 	std::cout<<"the split time diff is "<<splitEnd - splitBeg<<std::endl;
 
-	std::vector<SplitNode> nodeStructureArray(maxSplitNodeArrayLength);
-	clEnqueueReadBuffer(clQueue, splitNodeArrayMem, CL_TRUE, 0, sizeof(SplitNode)*nodeStructureArray.size(), &nodeStructureArray[0],0, 0, 0);
+	/*std::vector<SplitNode> nodeStructureArray(maxSplitNodeArrayLength);
+	clEnqueueReadBuffer(clQueue, splitNodeArrayMem, CL_TRUE, 0, sizeof(SplitNode)*nodeStructureArray.size(), &nodeStructureArray[0],0, 0, 0);*/
 
 
 	clFinish(clQueue);
@@ -285,17 +288,14 @@ void main(int argc, char** argv)
 	//释放资源
 	clReleaseKernel(clKernel);
 	clReleaseKernel(kernelSAHSplit);
-	clReleaseProgram(clpProgram);
 	clReleaseMemObject(inputMem);
 	clReleaseMemObject(randProMem);
 	clReleaseMemObject(randArrayMem);
 	clReleaseMemObject(splitNodeArrayMem);
 	clReleaseMemObject(dirMem);
-	clReleaseCommandQueue(clQueue);
-	//clReleaseContext(clContext);
 
 	//开始绘制图像
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+	/*glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS); 
@@ -401,8 +401,76 @@ void main(int argc, char** argv)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	} while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(window) == 0);
+*/
+	
+	//使用OpenCL的方法直接绘制PBO
+	cl_kernel ckRayTraceKernel = clCreateKernel(clpProgram, "RayTrace", &uiStatus);
+	checkErr(uiStatus, "fail to create kernel");
 
-	glfwTerminate();
+	cl_mem cmWinWidthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &iWinWidth, &uiStatus);
+	checkErr(uiStatus, "fail to create width buffer");
+	cl_mem cmWinHeightMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &iWinHeight, &uiStatus);
+	checkErr(uiStatus, "fail to create height buffer");
+	
+	clSetKernelArg(ckRayTraceKernel, 0, sizeof(cl_mem), &splitNodeArrayMem);
+	clSetKernelArg(ckRayTraceKernel, 1, sizeof(cl_mem), &cmWinWidthMem);
+	clSetKernelArg(ckRayTraceKernel, 2, sizeof(cl_mem), &cmWinHeightMem);
+	
+	//设置OpenCL_OpenGL共享内存
+	/*GLuint gluPixelBuffer;
+	glGenBuffers(1, &gluPixelBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, gluPixelBuffer);
+	glBufferData(GL_ARRAY_BUFFER, iWinHeight*iWinWidth*sizeof(glm::vec3), NULL, GL_STREAM_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	cl_mem	clmPBOMem = clCreateFromGLBuffer(clContext, CL_MEM_READ_WRITE, gluPixelBuffer, &uiStatus);
+	checkErr(uiStatus, "fail to create CL-GL shared buffer");
+	clSetKernelArg(ckRayTraceKernel, 3, sizeof(cl_mem), &gluPixelBuffer);
+
+
+
+	size_t stGlobalSize = {iWinWidth};
+	size_t stLocalSize = {256};
+
+	glFinish();
+	clEnqueueAcquireGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 1, NULL, &stGlobalSize, &stLocalSize, 0, 0, 0);
+	clFinish(clQueue);
+	clEnqueueReleaseGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+	checkErr(uiStatus, "fail to excute kernel");
+	clFinish(clQueue);*/
+	std::vector<char> pcPixelBufferIn(iWinWidth*iWinHeight*sizeof(glm::vec3));
+	cl_mem clmPBOMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE, iWinWidth*iWinHeight*sizeof(glm::vec3), &pcPixelBufferIn[0], &uiStatus);
+	checkErr(uiStatus, "fail to create PBO buffer");
+	clSetKernelArg(ckRayTraceKernel, 3, sizeof(cl_mem), &clmPBOMem);
+
+	std::vector<TriangleInfo> svTriangleInfo = pRes->triangleInfoArray;
+	cl_mem clmTriangleInfoMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY, sizeof(TriangleInfo)*pRes->triangleInfoArray.size(), &svTriangleInfo[0], &uiStatus);
+	clSetKernelArg(ckRayTraceKernel, 4, sizeof(cl_mem), &clmTriangleInfoMem);
+
+	size_t stGlobalSize = {iWinWidth};
+	size_t stLocalSize = {256};
+	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 1, NULL, &stGlobalSize, &stLocalSize, 0, 0, 0);
+	clFinish(clQueue);
+
+	std::vector<char> pcPixelBufferOut;
+	clEnqueueReadBuffer(clQueue, clmPBOMem, CL_FALSE, 0,iWinWidth*iWinHeight*sizeof(glm::vec3), &pcPixelBufferOut[0], NULL, NULL, NULL);
+	clFinish(clQueue);
+
+	do 
+	{
+		glClear(GL_COLOR_BUFFER_BIT);
+		glRasterPos2f(-1, -1);
+		glDrawPixels(iWinWidth, iWinHeight, GL_RGB, GL_UNSIGNED_BYTE, &pcPixelBufferOut[0]);
+	} while (1);
+
+
+	//释放资源
+	clReleaseProgram(clpProgram);
+	clReleaseMemObject(inputMem);
+	clReleaseMemObject(splitNodeArrayMem);
+	clReleaseCommandQueue(clQueue);
+
+
 
 	
 }

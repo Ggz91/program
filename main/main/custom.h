@@ -152,7 +152,7 @@ struct DrawableInfo
 {
 	/*std::vector<osg::ref_ptr<osg::Geode>> res_TP;
 	std::vector<osg::ref_ptr<osg::Geode>> res_AABB;*/
-	std::vector<TriangleInfo*> triangleInfoArray;
+	std::vector<TriangleInfo> triangleInfoArray;
 	std::vector<TriangleCandidateSplitPlane> triangleCandidateSplitPlaneArray;
 	glm::vec3* vertexList;
 };
@@ -211,7 +211,7 @@ DrawableInfo* getTriangles(glm::vec3* v3Vertex, int iVerLen)
 			resTriangleCandidateSplitPlane->xMax = resTrianglesInfo->GetXmax();
 			resTriangleCandidateSplitPlane->yMax = resTrianglesInfo->GetYmax();
 			resTriangleCandidateSplitPlane->zMax = resTrianglesInfo->GetZmax();
-			res->triangleInfoArray.push_back(&(*resTrianglesInfo));
+			res->triangleInfoArray.push_back(*resTrianglesInfo);
 			res->triangleCandidateSplitPlaneArray.push_back(*resTriangleCandidateSplitPlane);
 			//	std::cout<<std::endl;
 			i = 0;

@@ -23,6 +23,32 @@ struct SplitNode
 	float zMax;
 };
 
+
+
+//用于矩阵的运算，转换坐标系用
+struct mat4
+{
+	float4 l0;
+	float4 l1;
+	float4 l2;
+	float4 l3;
+
+	
+};
+
+
+float4  mul(struct mat4 m4, float4 l)
+	{
+		float4 res;
+		res.x = m4.l0.x*l.x + m4.l0.y*l.y + m4.l0.z*l.z + m4.l0.w*l.w;
+		res.y = m4.l1.x*l.x + m4.l1.y*l.y + m4.l1.z*l.z + m4.l1.w*l.w;
+		res.z = m4.l2.x*l.x + m4.l2.y*l.y + m4.l2.z*l.z + m4.l2.w*l.w;
+		res.w = m4.l3.x*l.x + m4.l3.y*l.y + m4.l3.z*l.z + m4.l3.w*l.w;
+
+		return res;
+		
+	};
+
 void UpdateSplitNodeWithAABBInfo(struct SplitNode *nodeArray,
 								 int idx, 
 								 struct TriangleCandidateSplitPlane *input)
@@ -172,3 +198,116 @@ __kernel void SAHSplit(global const struct TriangleCandidateSplitPlane* input,
 	//printf("\n");
 }
 
+struct t
+{
+	float txMax;
+	float txMin;
+	float tyMax;
+	float tyMin;
+	float tzMax;
+	float tzMin;
+
+	bool bCross()
+	{
+		
+		if( (txMin <= tyMin) && (tyMin<=txMax) ) 
+		{
+			if( (tzMin <= tyMin ) && (tyMin <= tzMax)) return true;
+			if( (tzMin <= txMax ) && (txMax <= tzMax)) return true;
+
+		}
+
+		if( (txMin <= tyMax) && (tyMax<=txMax) ) 
+		{
+			if( (tzMin <= tyMax ) && (tyMax <= tzMax)) return true;
+			if( (tzMin <= txMin ) && (txMin <= tzMax)) return true;
+
+		}
+		return false;
+
+	};
+};
+
+struct cusVec3
+{
+	float x;
+	float y;
+	float z;
+};
+
+struct TriangleInfo
+{
+	int triangleID;
+
+	struct cusVec3 vecInfo[3];
+
+	bool bIntersect()
+	{
+
+	}
+}
+//遍历叶子节点的三角面片
+float3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3LightDir, float& fDst, __global struct TriangleInfo* TriangleInfoArray)
+{
+	for(int i=node.beg; i<=node.end; i++)
+	{
+		if( TriangleInfoArray[i].bIntersect() )
+		{
+			
+		}
+	}
+}
+
+float3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDir, struct SplitNode* spSplitNodeArray, float& fDst,__global struct TriangleInfo* TriangleInfoArray)
+{
+	float3 f3Res;
+	//判断是不是最终的叶子节点
+	if( (root.leftChild == -1 ) && (root.rightChild == -1)) 
+	{
+		f3Res = RayCrossTraingleTest(root, f3EyePos, f3LightDir, fDst, TriangleInfoArray);
+		return f3Res;
+	}
+
+	struct t sT;
+	sT.txMax = (root.xMax - f3EyePos.x)/f3LightDir.x;
+	sT.txMin = (root.xMin - f3EyePos.x)/f3LightDir.x;
+	sT.tyMax = (root.yMax - f3EyePos.y)/f3LightDir.y;
+	sT.tyMin = (root.yMin - f3EyePos.y)/f3LightDir.y;
+	sT.tzMax = (root.zMax - f3EyePos.z)/f3LightDir.z;
+	sT.tzMin = (root.zMin - f3EyePos.z)/f3LightDir.z;
+
+	if( st.bCross() )
+	{
+		float fLeftDst, fRightDst;
+		float3 f3LeftPixel = RayCrossAABBTest(spSplitNodeArray[root.leftChild], f3EyePos, f3LightDir, fLeftDst, TriangleInfoArray);
+		float3 f3LeftPixel = RayCrossAABBTest(spSplitNodeArray[root.RightChild], f3EyePos, f3LightDir, fRightDst, TriangleInfoArray);
+		f3Res = (fLeftDst < fRightDst) ? f3LetfPixel : f3RightPixel;
+	}
+	else 
+	{
+		//不经过当前包围盒的话，
+		f3Res = (float3)(0, 0, 255);
+		fLeftDst = 10000;
+	}
+	
+	return f3Res;
+}
+
+__kernel void RayTrace(__global struct SplitNode* spSplitNodeArray, __global int* iWinWidth, __global int* iWinHeight, __global char* pcResPB, __global struct TriangleInfo* TriangleInfoArray)
+{
+	float3 f3EyePos = (float3)(0, 0, 5);
+	int idx = get_global_id(0);
+
+	for(int i = 0; i<iWinHeight; i++)
+	{
+		float3 f3PixPos = (float3)(idx,i, 4.9);
+		float3 f3LightDir = normalize(f3PixPos - f3EyePos);
+		
+		float3 f3Res = RayCrossAABBTest(spSplitNodeArray, f3EyePos, f3LightDir, spSplitNodeArray, TriangleInfoArray);
+		pcResPB[(idx*iWinWidth+i)*3] = f3Res.x;
+		pcResPB[(idx*iWinWidth+i)*3 + 1] = f3Res.y;
+		pcResPB[(idx*iWinWidth+i)*3 + 2] = f3Res.z;
+
+
+	}
+}
