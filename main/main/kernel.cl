@@ -207,26 +207,26 @@ struct t
 	float tzMax;
 	float tzMin;
 
-	bool bCross()
+	
+};
+
+bool bCross(struct t stT, float* tMin, float* tMax)
 	{
-		
-		if( (txMin <= tyMin) && (tyMin<=txMax) ) 
-		{
-			if( (tzMin <= tyMin ) && (tyMin <= tzMax)) return true;
-			if( (tzMin <= txMax ) && (txMax <= tzMax)) return true;
+		if((stT.txMax < stT.tyMin) || (stT.tyMax < stT.txMin)) return false;
 
-		}
+		*tMin = (stT.txMin < stT.tyMin) ? stT.txMin : stT.tyMin;
+		*tMax = (stT.txMax > stT.tyMax) ? stT.txMax : stT.tyMax;
 
-		if( (txMin <= tyMax) && (tyMax<=txMax) ) 
-		{
-			if( (tzMin <= tyMax ) && (tyMax <= tzMax)) return true;
-			if( (tzMin <= txMin ) && (txMin <= tzMax)) return true;
+		if((*tMax < stT.tzMin) || (stT.tzMax < *tMin)) return false;
 
-		}
-		return false;
+		*tMin = (*tMin < stT.tzMin) ? *tMin : stT.tzMin;
+		*tMax = (*tMax > stT.tzMax) ? *tMax : stT.tzMax;
+
+		return true;
+
+	
 
 	};
-};
 
 struct cusVec3
 {
@@ -241,30 +241,59 @@ struct TriangleInfo
 
 	struct cusVec3 vecInfo[3];
 
-	bool bIntersect()
-	{
+	
+};
 
+bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,float* tMin, float* tMax)
+	{
+		float a1 = f3LightDir.x;
+		float a2 = f3LightDir.y;
+		float a3 = f3LightDir.z;
+		float b1 = sTri.vecInfo[0].x - sTri.vecInfo[1].x;
+		float b2 = sTri.vecInfo[0].y - sTri.vecInfo[1].y;
+		float b3 = sTri.vecInfo[0].z - sTri.vecInfo[1].z;
+		float c1 = sTri.vecInfo[0].x - sTri.vecInfo[2].x;
+		float c2 = sTri.vecInfo[0].y - sTri.vecInfo[2].y;
+		float c3 = sTri.vecInfo[0].z - sTri.vecInfo[2].z;
+		float d1 = f3EyePos.x - sTri.vecInfo[0].x;
+		float d2 = f3EyePos.y - sTri.vecInfo[0].y;
+		float d3 = f3EyePos.z - sTri.vecInfo[0].z;
+		float detA = a1*b2*c3 + b1*c2*a3 + c1*a2*b3 - (c1*b2*a3 + b1*a2*c3 + a1*c2*b3);
+		float detA1 = c1*b2*d3 + b1*d2*c3 + d1*c2*b3 - (d1*b2*c3 + b1*c2*d3 + c1*d2*b3);
+		float detA2 = c1*d2*a3 + d1*a2*c3 + a1*c2*d3 - (a1*d2*c3 + d1*c2*a3 + c1*a2*d3);
+		float detA3 = d1*b2*a3 + b1*a2*d3 + a1*d2*b3 - (a1*b2*d3 + b1*d2*a3 + d1*a2*b3);
+
+		float t = detA1 / detA;
+		float b = detA2 / detA;
+		float c = detA3 / detA;
+
+		if( ( t>(*tMax) ) || ( t<(*tMin) )) return false;
+		if( ( c>1 ) || ( c<0 )) return false;
+		if( ( b>1-c ) || ( b<0 )) return false;
+		
 	}
-}
+
 //遍历叶子节点的三角面片
-float3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3LightDir, float& fDst, __global struct TriangleInfo* TriangleInfoArray)
+float3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3LightDir, float* fDst,  struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax)
 {
+	float3 f3Res;
 	for(int i=node.beg; i<=node.end; i++)
 	{
-		if( TriangleInfoArray[i].bIntersect() )
+		int idx = input[i].triangleID;
+		if( bIntersect(TriangleInfoArray[idx], f3EyePos, f3LightDir, tMin, tMax) )
 		{
-			
+			f3Res = (float3)(255, 255, 255);
 		}
 	}
 }
 
-float3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDir, struct SplitNode* spSplitNodeArray, float& fDst,__global struct TriangleInfo* TriangleInfoArray)
+float3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDir, struct SplitNode* spSplitNodeArray, float* fDst, struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax)
 {
 	float3 f3Res;
 	//判断是不是最终的叶子节点
 	if( (root.leftChild == -1 ) && (root.rightChild == -1)) 
 	{
-		f3Res = RayCrossTraingleTest(root, f3EyePos, f3LightDir, fDst, TriangleInfoArray);
+		f3Res = RayCrossTraingleTest(root, f3EyePos, f3LightDir, fDst, TriangleInfoArray, input, tMin, tMax);
 		return f3Res;
 	}
 
@@ -276,37 +305,40 @@ float3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 	sT.tzMax = (root.zMax - f3EyePos.z)/f3LightDir.z;
 	sT.tzMin = (root.zMin - f3EyePos.z)/f3LightDir.z;
 
-	if( st.bCross() )
+	if( bCross(sT, tMin, tMax) )
 	{
 		float fLeftDst, fRightDst;
-		float3 f3LeftPixel = RayCrossAABBTest(spSplitNodeArray[root.leftChild], f3EyePos, f3LightDir, fLeftDst, TriangleInfoArray);
-		float3 f3LeftPixel = RayCrossAABBTest(spSplitNodeArray[root.RightChild], f3EyePos, f3LightDir, fRightDst, TriangleInfoArray);
-		f3Res = (fLeftDst < fRightDst) ? f3LetfPixel : f3RightPixel;
+		float3 f3LeftPixel = RayCrossAABBTest(spSplitNodeArray[root.leftChild], f3EyePos, f3LightDir, spSplitNodeArray, &fLeftDst, TriangleInfoArray, input, tMin, tMax);
+		float3 f3RightPixel = RayCrossAABBTest(spSplitNodeArray[root.rightChild], f3EyePos, f3LightDir, spSplitNodeArray, &fRightDst, TriangleInfoArray, input, tMin, tMax);
+		f3Res = (fLeftDst < fRightDst) ? f3LeftPixel : f3RightPixel;
 	}
 	else 
 	{
 		//不经过当前包围盒的话，
 		f3Res = (float3)(0, 0, 255);
-		fLeftDst = 10000;
+		//fLeftDst = 10000;
 	}
 	
 	return f3Res;
 }
 
-__kernel void RayTrace(__global struct SplitNode* spSplitNodeArray, __global int* iWinWidth, __global int* iWinHeight, __global char* pcResPB, __global struct TriangleInfo* TriangleInfoArray)
+__kernel void RayTrace(__global struct SplitNode* spSplitNodeArray, __global int* iWinWidth, __global int* iWinHeight, __global char* pcResPB, __global struct TriangleInfo* TriangleInfoArray, __global struct TriangleCandidateSplitPlane* input )
 {
+	float tMin = 0;
+	float tMax = 0;
+	float fDst = 10000;
 	float3 f3EyePos = (float3)(0, 0, 5);
 	int idx = get_global_id(0);
 
-	for(int i = 0; i<iWinHeight; i++)
+	for(int i = 0; i<(*iWinHeight); i++)
 	{
 		float3 f3PixPos = (float3)(idx,i, 4.9);
 		float3 f3LightDir = normalize(f3PixPos - f3EyePos);
 		
-		float3 f3Res = RayCrossAABBTest(spSplitNodeArray, f3EyePos, f3LightDir, spSplitNodeArray, TriangleInfoArray);
-		pcResPB[(idx*iWinWidth+i)*3] = f3Res.x;
-		pcResPB[(idx*iWinWidth+i)*3 + 1] = f3Res.y;
-		pcResPB[(idx*iWinWidth+i)*3 + 2] = f3Res.z;
+		float3 f3Res = RayCrossAABBTest(spSplitNodeArray[0], f3EyePos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax);
+		pcResPB[(idx*(*iWinWidth)+i)*3] = f3Res.x;
+		pcResPB[(idx*(*iWinWidth)+i)*3 + 1] = f3Res.y;
+		pcResPB[(idx*(*iWinWidth)+i)*3 + 2] = f3Res.z;
 
 
 	}

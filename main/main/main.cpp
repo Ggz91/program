@@ -74,6 +74,9 @@ void main(int argc, char** argv)
 
 	bool bRes = loadOBJ("suzanne.obj", vv3Verts, vv2UVs, vv3Nor);
 
+	DrawableInfo* pRes = new DrawableInfo;
+	pRes = getTriangles(&vv3Verts[0], vv3Verts.size());
+
 	//设置OpenCL环境
 	cl_int uiStatus;
 	cl_uint	iPlatformNum;
@@ -143,8 +146,7 @@ void main(int argc, char** argv)
 
 	checkErr(PRINT_INFO, "complete the GL_CL clContext");
 
-	DrawableInfo* pRes = new DrawableInfo;
-	pRes = getTriangles(&vv3Verts[0], vv3Verts.size());
+	
 
 
 	DWORD sortBeg = GetTickCount();
@@ -288,7 +290,6 @@ void main(int argc, char** argv)
 	//释放资源
 	clReleaseKernel(clKernel);
 	clReleaseKernel(kernelSAHSplit);
-	clReleaseMemObject(inputMem);
 	clReleaseMemObject(randProMem);
 	clReleaseMemObject(randArrayMem);
 	clReleaseMemObject(splitNodeArrayMem);
@@ -446,6 +447,8 @@ void main(int argc, char** argv)
 	std::vector<TriangleInfo> svTriangleInfo = pRes->triangleInfoArray;
 	cl_mem clmTriangleInfoMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY, sizeof(TriangleInfo)*pRes->triangleInfoArray.size(), &svTriangleInfo[0], &uiStatus);
 	clSetKernelArg(ckRayTraceKernel, 4, sizeof(cl_mem), &clmTriangleInfoMem);
+
+	clSetKernelArg(ckRayTraceKernel, 5, sizeof(cl_mem), &inputMem);
 
 	size_t stGlobalSize = {iWinWidth};
 	size_t stLocalSize = {256};
