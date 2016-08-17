@@ -97,10 +97,10 @@ void main(int argc, char** argv)
 
 	//创建OpenCL-OpenGL环境
 	cl_context_properties clProp[]={
-		CL_GL_CONTEXT_KHR,
+		/*CL_GL_CONTEXT_KHR,
 		(cl_context_properties)wglGetCurrentContext(),
 		CL_WGL_HDC_KHR,
-		(cl_context_properties)wglGetCurrentDC(),
+		(cl_context_properties)wglGetCurrentDC(),*/
 		CL_CONTEXT_PLATFORM,
 		(cl_context_properties)svPlatformIDs[0],
 		0
@@ -440,22 +440,26 @@ void main(int argc, char** argv)
 	checkErr(uiStatus, "fail to excute kernel");
 	clFinish(clQueue);*/
 	std::vector<char> pcPixelBufferIn(iWinWidth*iWinHeight*sizeof(glm::vec3));
-	cl_mem clmPBOMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE, iWinWidth*iWinHeight*sizeof(glm::vec3), &pcPixelBufferIn[0], &uiStatus);
+	cl_mem clmPBOMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE  | CL_MEM_COPY_HOST_PTR, iWinWidth*iWinHeight*sizeof(glm::vec3), &pcPixelBufferIn[0], &uiStatus);
 	checkErr(uiStatus, "fail to create PBO buffer");
 	clSetKernelArg(ckRayTraceKernel, 3, sizeof(cl_mem), &clmPBOMem);
 
 	std::vector<TriangleInfo> svTriangleInfo = pRes->triangleInfoArray;
-	cl_mem clmTriangleInfoMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY, sizeof(TriangleInfo)*pRes->triangleInfoArray.size(), &svTriangleInfo[0], &uiStatus);
+	cl_mem clmTriangleInfoMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, sizeof(TriangleInfo)*pRes->triangleInfoArray.size(), &svTriangleInfo[0], &uiStatus);
 	clSetKernelArg(ckRayTraceKernel, 4, sizeof(cl_mem), &clmTriangleInfoMem);
 
 	clSetKernelArg(ckRayTraceKernel, 5, sizeof(cl_mem), &inputMem);
+
+	cl_int cliLength = maxSplitNodeArrayLength;
+	cl_mem lengthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_int), &cliLength, &uiStatus);
+	clSetKernelArg(ckRayTraceKernel, 6, sizeof(cl_mem), &lengthMem);
 
 	size_t stGlobalSize = {iWinWidth};
 	size_t stLocalSize = {256};
 	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 1, NULL, &stGlobalSize, &stLocalSize, 0, 0, 0);
 	clFinish(clQueue);
 
-	std::vector<char> pcPixelBufferOut;
+	std::vector<char> pcPixelBufferOut(iWinWidth*iWinHeight);
 	clEnqueueReadBuffer(clQueue, clmPBOMem, CL_FALSE, 0,iWinWidth*iWinHeight*sizeof(glm::vec3), &pcPixelBufferOut[0], NULL, NULL, NULL);
 	clFinish(clQueue);
 
