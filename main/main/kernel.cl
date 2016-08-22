@@ -1,6 +1,10 @@
-#ifndef __DEBUG__
-#define __DEBUG__
+#ifndef __CUSBUG__
+//#define __CUSBUG__
 #endif
+
+#define DEC_SPEED 0.1
+
+
 
 struct TriangleCandidateSplitPlane
 {
@@ -181,7 +185,7 @@ __kernel void SAHSplit(global const struct TriangleCandidateSplitPlane* input,
 				}//endif(newSAH < currentSAH)
 				n++;
 			}//end while(n<8)
-			T = 0.2*T;
+			T = (1-DEC_SPEED)*T;
 		}//end while(T > 1)
 
 		//printf("after:\nrandPos:%d\t\tcurrentPos:%d\t\tcurrentSAH:%f\n",randPos[i-1], currentPos, currentSAH);
@@ -215,22 +219,27 @@ struct t
 };
 
 bool bCross(struct t stT, float* tMin, float* tMax)
-	{
-		if((stT.txMax < stT.tyMin) || (stT.tyMax < stT.txMin)) return false;
+{
+	
+	if((stT.txMax < stT.tyMin) || (stT.tyMax < stT.txMin)) return false;
 
-		*tMin = (stT.txMin < stT.tyMin) ? stT.txMin : stT.tyMin;
-		*tMax = (stT.txMax > stT.tyMax) ? stT.txMax : stT.tyMax;
+	*tMin = (stT.txMin < stT.tyMin) ? stT.tyMin : stT.txMin;
+	*tMax = (stT.txMax > stT.tyMax) ? stT.tyMax : stT.txMax;
 
-		if((*tMax < stT.tzMin) || (stT.tzMax < *tMin)) return false;
+	if((*tMax < stT.tzMin) || (stT.tzMax < *tMin)) return false;
 
-		*tMin = (*tMin < stT.tzMin) ? *tMin : stT.tzMin;
-		*tMax = (*tMax > stT.tzMax) ? *tMax : stT.tzMax;
+	*tMin = (*tMin < stT.tzMin) ? stT.tzMin : *tMin ;
+	*tMax = (*tMax > stT.tzMax) ? stT.tzMax : *tMax ;
 
-		return true;
+#ifdef __CUSBUG__
+	//printf("in bCross: %f %f %f %f %f %f", stT.txMin, stT.txMax, stT.tyMin, stT.tyMax, stT.tzMin, stT.tzMax);
+	printf("%f %f", *tMin, *tMax);
+#endif
+	return true;
 
 	
 
-	};
+};
 
 struct cusVec3
 {
@@ -249,34 +258,39 @@ struct TriangleInfo
 };
 
 bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,float* tMin, float* tMax)
-	{
-		float a1 = f3LightDir.x;
-		float a2 = f3LightDir.y;
-		float a3 = f3LightDir.z;
-		float b1 = sTri.vecInfo[0].x - sTri.vecInfo[1].x;
-		float b2 = sTri.vecInfo[0].y - sTri.vecInfo[1].y;
-		float b3 = sTri.vecInfo[0].z - sTri.vecInfo[1].z;
-		float c1 = sTri.vecInfo[0].x - sTri.vecInfo[2].x;
-		float c2 = sTri.vecInfo[0].y - sTri.vecInfo[2].y;
-		float c3 = sTri.vecInfo[0].z - sTri.vecInfo[2].z;
-		float d1 = f3EyePos.x - sTri.vecInfo[0].x;
-		float d2 = f3EyePos.y - sTri.vecInfo[0].y;
-		float d3 = f3EyePos.z - sTri.vecInfo[0].z;
-		float detA = a1*b2*c3 + b1*c2*a3 + c1*a2*b3 - (c1*b2*a3 + b1*a2*c3 + a1*c2*b3);
-		float detA1 = c1*b2*d3 + b1*d2*c3 + d1*c2*b3 - (d1*b2*c3 + b1*c2*d3 + c1*d2*b3);
-		float detA2 = c1*d2*a3 + d1*a2*c3 + a1*c2*d3 - (a1*d2*c3 + d1*c2*a3 + c1*a2*d3);
-		float detA3 = d1*b2*a3 + b1*a2*d3 + a1*d2*b3 - (a1*b2*d3 + b1*d2*a3 + d1*a2*b3);
+{
+	float a1 = f3LightDir.x;
+	float a2 = f3LightDir.y;
+	float a3 = f3LightDir.z;
+	float b1 = sTri.vecInfo[0].x - sTri.vecInfo[1].x;
+	float b2 = sTri.vecInfo[0].y - sTri.vecInfo[1].y;
+	float b3 = sTri.vecInfo[0].z - sTri.vecInfo[1].z;
+	float c1 = sTri.vecInfo[0].x - sTri.vecInfo[2].x;
+	float c2 = sTri.vecInfo[0].y - sTri.vecInfo[2].y;
+	float c3 = sTri.vecInfo[0].z - sTri.vecInfo[2].z;
+	float d1 = sTri.vecInfo[0].x - f3EyePos.x;
+	float d2 = sTri.vecInfo[0].y - f3EyePos.y;
+	float d3 = sTri.vecInfo[0].z - f3EyePos.z;
+	/*float detA = a1*b2*c3 + b1*c2*a3 + c1*a2*b3 - (c1*b2*a3 + b1*a2*c3 + a1*c2*b3);
+	float detA1 = c1*b2*d3 + b1*d2*c3 + d1*c2*b3 - (d1*b2*c3 + b1*c2*d3 + c1*d2*b3);
+	float detA2 = c1*d2*a3 + d1*a2*c3 + a1*c2*d3 - (a1*d2*c3 + d1*c2*a3 + c1*a2*d3);
+	float detA3 = d1*b2*a3 + b1*a2*d3 + a1*d2*b3 - (a1*b2*d3 + b1*d2*a3 + d1*a2*b3);*/
 
-		float t = detA1 / detA;
-		float b = detA2 / detA;
-		float c = detA3 / detA;
+	float detA = a1*(b2*c3 - b3*c2) - b1*(a2*c3 - a3*c2) + c1*(a2*b3 - a3*b2);
+	float detA1 = d1*(b2*c3 - b3*c2) - b1*(d2*c3 - d3*c2) + c1*(d2*b3 - d3*b2);
+	float detA2 = a1*(d2*c3 - d3*c2) - d1*(a2*c3 - a3*c2) + c1*(a2*d3 - a3*d2);
+	float detA3 = a1*(b2*d3 - b3*d2) - b1*(a2*d3 - a3*d2) + d1*(a2*b3 - a3*b2);
 
-		if( ( t>(*tMax) ) || ( t<(*tMin) )) return false;
-		if( ( c>1 ) || ( c<0 )) return false;
-		if( ( b>1-c ) || ( b<0 )) return false;
-		
-		return true;
-	}
+
+	float t = detA1 / detA; 
+	float b = detA2 / detA;
+	float c = detA3 / detA;
+
+	if( ( t<(*tMin) ) || ( t>(*tMax) )) return false;
+	if( ( c>1 ) || ( c<0 )) return false;
+	if( ( b>1-c ) || ( b<0 )) return false;
+	return true;
+}	
 
 //遍历叶子节点的三角面片
 uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3LightDir, float* fDst,  struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, int* flag)
@@ -287,12 +301,14 @@ uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3Lig
 		int idx = input[i].triangleID;
 		if( bIntersect(TriangleInfoArray[idx], f3EyePos, f3LightDir, tMin, tMax) )
 		{
-			//printf("Intersected! ");
+#ifdef __CUSBUG__
+			printf("Intersected! %f %f", *tMin, *tMax);
+#endif
 			*flag = 0;
 			f3Res = (uchar3)(255, 255, 255);
 		}
 	}
-	printf("%d", *flag);
+	//printf("%d", *flag);
 	return f3Res;
 	
 }
@@ -381,39 +397,259 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 	//	//fLeftDst = 10000;
 	//}
 	
+	//层序遍历
+	//struct Stack sStack;
+	//InitStack(&sStack, (*length));
+	//PushStack(&sStack, root);
+	//int flag = 1;
+	//while( !IsEmpty(&sStack) && ( flag == 1 ) )
+	//{
+	//	struct SplitNode snCurNode = PopStack(&sStack);
+	//	//判断是否为叶子节点
+	//	if( ( snCurNode.leftChild == -1) && (snCurNode.rightChild == -1) )
+	//	{
+	//		printf("in leaf node");
+	//		f3Res = RayCrossTraingleTest( snCurNode, f3EyePos, f3LightDir, fDst, TriangleInfoArray, input, tMin, tMax, &flag);
+	//		
+	//	}
+	//	else
+	//	{
+	//		struct t sT;
+	//		sT.txMax = (snCurNode.xMax - f3EyePos.x)/f3LightDir.x;
+	//		sT.txMin = (snCurNode.xMin - f3EyePos.x)/f3LightDir.x;
+	//		sT.tyMax = (snCurNode.yMax - f3EyePos.y)/f3LightDir.y;
+	//		sT.tyMin = (snCurNode.yMin - f3EyePos.y)/f3LightDir.y;
+	//		sT.tzMax = (snCurNode.zMax - f3EyePos.z)/f3LightDir.z;
+	//		sT.tzMin = (snCurNode.zMin - f3EyePos.z)/f3LightDir.z;
+	//		if( bCross(sT, tMin, tMax))
+	//		{
+	//			//printf("%f %f", *tMin, *tMax);
+	//			PushStack(&sStack, spSplitNodeArray[snCurNode.leftChild]);
+	//			PushStack(&sStack, spSplitNodeArray[snCurNode.rightChild]);
+	//		}
+	//		
+	//	}
+	//}
+	////printf("%d %d %d", f3Res.x, f3Res.y, f3Res.z);
+
+	//后序遍历
 	struct Stack sStack;
 	InitStack(&sStack, (*length));
 	PushStack(&sStack, root);
 	int flag = 1;
-	while( !IsEmpty(&sStack) && ( flag == 1 ) )
+	while( !IsEmpty(&sStack) && ( flag == 1 ))
 	{
 		struct SplitNode snCurNode = PopStack(&sStack);
-		//判断是否为叶子节点
-		if( ( snCurNode.leftChild == -1) && (snCurNode.rightChild == -1) )
+		struct t sT;
+		
+
+		/*if( f3LightDir.x < 0 )
 		{
-			
-			f3Res = RayCrossTraingleTest( snCurNode, f3EyePos, f3LightDir, fDst, TriangleInfoArray, input, tMin, tMax, &flag);
-			
+			sT.txMax = (snCurNode.xMin - f3EyePos.x) / f3LightDir.x;
+			sT.txMin = (snCurNode.xMax - f3EyePos.x) / f3LightDir.x;
+
+		}
+		if( f3LightDir.x == 0 )
+		{
+			sT.txMax = 0;
+			sT.txMin = 0;
 		}
 		else
 		{
-			struct t sT;
-			sT.txMax = (root.xMax - f3EyePos.x)/f3LightDir.x;
-			sT.txMin = (root.xMin - f3EyePos.x)/f3LightDir.x;
-			sT.tyMax = (root.yMax - f3EyePos.y)/f3LightDir.y;
-			sT.tyMin = (root.yMin - f3EyePos.y)/f3LightDir.y;
-			sT.tzMax = (root.zMax - f3EyePos.z)/f3LightDir.z;
-			sT.tzMin = (root.zMin - f3EyePos.z)/f3LightDir.z;
-			if( bCross(sT, tMin, tMax))
-			{
-				//printf("cross AABB ");
-				PushStack(&sStack, spSplitNodeArray[snCurNode.leftChild]);
-				PushStack(&sStack, spSplitNodeArray[snCurNode.rightChild]);
-			}
+			sT.txMax = (snCurNode.xMin - f3EyePos.x) / f3LightDir.x;
+			sT.txMin = (snCurNode.xMax - f3EyePos.x) / f3LightDir.x;
+
+		}
+
+		if( f3LightDir.y < 0)
+		{
+			sT.tyMax = (snCurNode.yMin - f3EyePos.y) / f3LightDir.y;
+			sT.tyMin = (snCurNode.yMax - f3EyePos.y) / f3LightDir.y;
+
+		}
+		if( f3LightDir.y == 0 )
+		{
+			sT.tyMax = 0;
+			sT.tyMin = 0;
+		}
+		else
+		{
+			sT.tyMax = (snCurNode.yMin - f3EyePos.y) / f3LightDir.y;
+			sT.tyMin = (snCurNode.yMax - f3EyePos.y) / f3LightDir.y;
+
+		}*/
+
+		float fTmp1, fTmp2;
+
+		if( f3LightDir.x != 0 )
+		{
+			fTmp1 = (snCurNode.xMin - f3EyePos.x) / f3LightDir.x;
+			fTmp2 = (snCurNode.xMax - f3EyePos.x) / f3LightDir.x;
+
+			sT.txMin = (fTmp1 < fTmp2)? fTmp1 : fTmp2;
+			sT.txMax = (fTmp1 >= fTmp2)? fTmp1 : fTmp2;
+		}
+		else
+		{
+			sT.txMin = INT_MIN;
+			sT.txMax = INT_MAX;
+		}
+		
+
+		if( f3LightDir.y != 0 )
+		{
+			fTmp1 = (snCurNode.yMin - f3EyePos.y) / f3LightDir.y;
+			fTmp2 = (snCurNode.yMax - f3EyePos.y) / f3LightDir.y;
+
+			sT.tyMin = (fTmp1 < fTmp2)? fTmp1 : fTmp2;
+			sT.tyMax = (fTmp1 >= fTmp2)? fTmp1 : fTmp2;
+		}
+		else
+		{
+			sT.tyMin = INT_MIN;
+			sT.txMax = INT_MAX;
+		}
+
+		if( f3LightDir.z != 0 )
+		{
+			fTmp1 = (snCurNode.zMin - f3EyePos.z) / f3LightDir.z;
+			fTmp2 = (snCurNode.zMax - f3EyePos.z) / f3LightDir.z;
+
+			sT.tzMin = (fTmp1 < fTmp2)? fTmp1 : fTmp2;
+			sT.tzMax = (fTmp1 >= fTmp2)? fTmp1 : fTmp2;
+		}
+		else
+		{
+			sT.tzMin = INT_MIN;
+			sT.tzMax = INT_MAX;
+		}
+
+		/*sT.txMax = (snCurNode.xMax - f3EyePos.x)/f3LightDir.x;
+		sT.txMin = (snCurNode.xMin - f3EyePos.x)/f3LightDir.x;
+		sT.tyMax = (snCurNode.yMax - f3EyePos.y)/f3LightDir.y;
+		sT.tyMin = (snCurNode.yMin - f3EyePos.y)/f3LightDir.y;
+		sT.tzMin = (snCurNode.zMax - f3EyePos.z)/f3LightDir.z;
+		sT.tzMax = (snCurNode.zMin - f3EyePos.z)/f3LightDir.z;*/
+
+		
+		
+		
+
+		/*printf("%f %f %f", snCurNode.xMax / f3LightDir.x, snCurNode.yMax / f3LightDir.y, snCurNode.zMax / f3LightDir.z);*/
+		
+#ifdef __CUSBUG__
+		//printf("%d %d ", snCurNode.beg, snCurNode.end);
+#endif
+
+		while( (snCurNode.leftChild != -1) && (bCross(sT, tMin, tMax)) )
+		{
+
+#ifdef __CUSBUG__
+			//printf("in while ");
+			//printf(" ");
+#endif
+			PushStack(&sStack, spSplitNodeArray[snCurNode.rightChild]);
 			
+			snCurNode = spSplitNodeArray[snCurNode.leftChild];
+		
+			if( (snCurNode.leftChild == -1) && (snCurNode.rightChild == -1)) break;
+
+			
+
+			//if( f3LightDir.x < 0 )
+			//{
+			//	sT.txMax = (snCurNode.xMin - f3EyePos.x) / f3LightDir.x;
+			//	sT.txMin = (snCurNode.xMax - f3EyePos.x) / f3LightDir.x;
+	
+			//}
+			//if( f3LightDir.x == 0 )
+			//{
+			//	sT.txMax = 0;
+			//	sT.txMin = 0;
+			//}
+			//else
+			//{
+			//	sT.txMax = (snCurNode.xMin - f3EyePos.x) / f3LightDir.x;
+			//	sT.txMin = (snCurNode.xMax - f3EyePos.x) / f3LightDir.x;
+
+			//}
+
+			//if( f3LightDir.y < 0)
+			//{
+			//	sT.tyMax = (snCurNode.yMin - f3EyePos.y) / f3LightDir.y;
+			//	sT.tyMin = (snCurNode.yMax - f3EyePos.y) / f3LightDir.y;
+
+			//}
+			//if( f3LightDir.y == 0 )
+			//{
+			//	sT.tyMax = 0;
+			//	sT.tyMin = 0;
+			//}
+			//else
+			//{
+			//	sT.tyMax = (snCurNode.yMin - f3EyePos.y) / f3LightDir.y;
+			//	sT.tyMin = (snCurNode.yMax - f3EyePos.y) / f3LightDir.y;
+
+			//}
+
+			if( f3LightDir.x != 0 )
+			{
+				fTmp1 = (snCurNode.xMin - f3EyePos.x) / f3LightDir.x;
+				fTmp2 = (snCurNode.xMax - f3EyePos.x) / f3LightDir.x;
+
+				sT.txMin = (fTmp1 < fTmp2)? fTmp1 : fTmp2;
+				sT.txMax = (fTmp1 >= fTmp2)? fTmp1 : fTmp2;
+			}
+			else
+			{
+				sT.txMin = INT_MIN;
+				sT.txMax = INT_MAX;
+			}
+		
+
+			if( f3LightDir.y != 0 )
+			{
+				fTmp1 = (snCurNode.yMin - f3EyePos.y) / f3LightDir.y;
+				fTmp2 = (snCurNode.yMax - f3EyePos.y) / f3LightDir.y;
+
+				sT.tyMin = (fTmp1 < fTmp2)? fTmp1 : fTmp2;
+				sT.tyMax = (fTmp1 >= fTmp2)? fTmp1 : fTmp2;
+			}
+			else
+			{
+				sT.tyMin = INT_MIN;
+				sT.txMax = INT_MAX;
+			}
+
+			if( f3LightDir.z != 0 )
+			{
+				fTmp1 = (snCurNode.zMin - f3EyePos.z) / f3LightDir.z;
+				fTmp2 = (snCurNode.zMax - f3EyePos.z) / f3LightDir.z;
+
+				sT.tzMin = (fTmp1 < fTmp2)? fTmp1 : fTmp2;
+				sT.tzMax = (fTmp1 >= fTmp2)? fTmp1 : fTmp2;
+			}
+			else
+			{
+				sT.tzMin = INT_MIN;
+				sT.tzMax = INT_MAX;
+			}
+
+			/*sT.txMax = (snCurNode.xMax - f3EyePos.x)/f3LightDir.x;
+			sT.txMin = (snCurNode.xMin - f3EyePos.x)/f3LightDir.x;
+			sT.tyMax = (snCurNode.yMax - f3EyePos.y)/f3LightDir.y;
+			sT.tyMin = (snCurNode.yMin - f3EyePos.y)/f3LightDir.y;*/
+			sT.tzMin = (snCurNode.zMax - f3EyePos.z)/f3LightDir.z;
+			sT.tzMax = (snCurNode.zMin - f3EyePos.z)/f3LightDir.z;
+
+		}
+
+		if( ( snCurNode.leftChild == -1 ) && ( snCurNode.rightChild == -1 ))
+		{
+			f3Res = RayCrossTraingleTest( snCurNode, f3EyePos, f3LightDir, fDst, TriangleInfoArray, input, tMin, tMax, &flag );
 		}
 	}
-	//printf("%d %d %d", f3Res.x, f3Res.y, f3Res.z);
+
 	return f3Res;
 
 }
@@ -423,20 +659,27 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	float tMin = 0;
 	float tMax = 0;
 	float fDst = 10000;
-	float3 f3EyePos = (float3)(0, 0, 5);
+	float3 f3EyePos = (float3)(0, 0, 5.0);
 	int idx = get_global_id(0);
 
 	for(int i = 0; i<(*iWinHeight); i++)
 	{
 
-		float3 f3PixPos = (float3)(idx - (*iWinWidth)/2 ,i - (*iWinHeight)/2 , 4.9);
+		float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 0.9);
 		float3 f3LightDir = normalize(f3PixPos - f3EyePos);
+
+#ifdef __CUSBUG__
+		//printf("%f %f %f", f3LightDir.x, f3LightDir.y, f3LightDir.z);
+#endif
 
 		uchar3 f3Res = RayCrossAABBTest(spSplitNodeArray[0], f3EyePos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length);
 		pcResPB[(i*(*iWinWidth)+idx)*3] = f3Res.x;
 		pcResPB[(i*(*iWinWidth)+idx)*3 + 1] = f3Res.y;
 		pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;
-		
 
+#ifdef __CUSBUG__
+		//printf("%d %d %d", f3Res.x, f3Res.y, f3Res.z);
+#endif
 	}
+
 }

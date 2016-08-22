@@ -8,7 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define T0 64
-#define NMAX 8
+#define NMAX 20
 #define MAXDEPTH 20
 
 

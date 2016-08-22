@@ -27,8 +27,8 @@ using namespace glm;
 #include "custom.h"
 
 
-int iWidth= 1024;
-int iHeight = 768;
+int iWidth= 768;
+int iHeight = 512;
 
 
 
@@ -136,7 +136,7 @@ void main(int argc, char** argv)
 
 	cl_program clpProgram = clCreateProgramWithSource(clContext, 1,	&ccSource, &stFileLen, &uiStatus);
 	checkErr(uiStatus, "fail to create program");
-	const char ccOptions[] ="-cl-std=CL1.1 -D T0=64 -D NMAX=8";
+	const char ccOptions[] ="-cl-std=CL1.1 -D T0 -D NMAX";
 	uiStatus = clBuildProgram(clpProgram, 1, &svDeviceIDs[0], ccOptions, 0, 0);
 	if ( CL_SUCCESS != uiStatus )
 	{
@@ -415,6 +415,7 @@ void main(int argc, char** argv)
 */
 	
 	//使用OpenCL的方法直接绘制PBO
+	DWORD dwRenderBeg = GetTickCount();
 	cl_kernel ckRayTraceKernel = clCreateKernel(clpProgram, "RayTrace", &uiStatus);
 	checkErr(uiStatus, "fail to create kernel");
 
@@ -473,7 +474,9 @@ void main(int argc, char** argv)
 	clEnqueueReadBuffer(clQueue, clmPBOMem, CL_TRUE, 0, 3*iWidth*iHeight*sizeof(cl_uchar), &pcPixelBufferOut[0], NULL, NULL, NULL);
 	clFinish(clQueue);
 
+	DWORD dwRenderEnd = GetTickCount();
 	std::cout<<" the PBO is completed"<<std::endl;
+	std::cout<<" the render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
 
 	std::freopen("PBO.txt", "w", stdout);
 
