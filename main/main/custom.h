@@ -7,10 +7,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define T0 64
-#define NMAX 20
-#define MAXDEPTH 20
-
+#define T0 32		//模拟退火算法中的初始温度
+#define NMAX 20		//模拟退火算法中一次降温的采样数
+#define MAXDEPTH 20 //KD-Tree的最大深度
+#define MAXITER	2	//光线跟踪的迭代次数
 
 typedef enum 
 {
@@ -42,6 +42,8 @@ struct TriangleInfo
 	int triangleID;
 
 	glm::vec3 vecInfo[3];
+
+	glm::vec3 vecNormal;
 
 	float GetXmin()
 	{
@@ -157,17 +159,19 @@ struct DrawableInfo
 	glm::vec3* vertexList;
 };
 
-void GetTraingleInfo(glm::vec3* p1, glm::vec3* p2, glm::vec3* p3, int ID, TriangleInfo* res)
+void GetTraingleInfo(glm::vec3* p1, glm::vec3* p2, glm::vec3* p3, glm::vec3* nor, int ID, TriangleInfo* res)
 {
 	res->vecInfo[0] = *p1;
 	res->vecInfo[1] = *p2;
 	res->vecInfo[2] = *p3;
 
+	res->vecNormal = *nor;
+	
 	res->triangleID = ID;
 }
 
 //将顶点信息划分为三角片信息
-DrawableInfo* getTriangles(glm::vec3* v3Vertex, int iVerLen)
+DrawableInfo* getTriangles(glm::vec3* v3Vertex, glm::vec3* v3Normal, int iVerLen)
 {
 	int ID = 0;
 	TriangleInfo* resTrianglesInfo = new TriangleInfo;
@@ -177,7 +181,7 @@ DrawableInfo* getTriangles(glm::vec3* v3Vertex, int iVerLen)
 	glm::vec3* p1 = new glm::vec3;
 	glm::vec3* p2 = new glm::vec3;
 	glm::vec3* p3 = new glm::vec3;
-
+	glm::vec3* nor = new glm::vec3;
 	res->vertexList = v3Vertex;
 
 	int i = 1;
@@ -198,11 +202,13 @@ DrawableInfo* getTriangles(glm::vec3* v3Vertex, int iVerLen)
 			p3 = new glm::vec3;
 			p3 = &v3Vertex[j];
 
+			nor = new glm::vec3;
+			nor = &v3Normal[j];
 
 			//	std::cout<<"================================"<<std::endl;
 			resTrianglesInfo = new TriangleInfo;
 			resTriangleCandidateSplitPlane = new TriangleCandidateSplitPlane;
-			GetTraingleInfo(p1, p2, p3, ID, resTrianglesInfo);
+			GetTraingleInfo(p1, p2, p3, nor, ID, resTrianglesInfo);
 			resTriangleCandidateSplitPlane->triangleID = ID;
 			ID++;
 			resTriangleCandidateSplitPlane->xMin = resTrianglesInfo->GetXmin();

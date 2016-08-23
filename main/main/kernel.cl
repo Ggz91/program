@@ -7,7 +7,7 @@
 
 #define DEC_SPEED 0.1
 
-
+const float3 cf3LightPos = (float3)(0, 0, -5);
 
 struct TriangleCandidateSplitPlane
 {
@@ -257,10 +257,10 @@ struct TriangleInfo
 
 	struct cusVec3 vecInfo[3];
 
-	
+	struct cusVec3 vecNormal;
 };
 
-bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,float* tMin, float* tMax)
+bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,float* tMin, float* tMax, float3* interPos)
 {
 	float a1 = f3LightDir.x;
 	float a2 = f3LightDir.y;
@@ -292,27 +292,84 @@ bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,floa
 	if( ( t<(*tMin) ) || ( t>(*tMax) )) return false;
 	if( ( c>1 ) || ( c<0 )) return false;
 	if( ( b>1-c ) || ( b<0 )) return false;
+	
+	interPos->x = f3EyePos.x + t * f3LightDir.x;
+	interPos->y = f3EyePos.y + t * f3LightDir.y;
+	interPos->z = f3EyePos.z + t * f3LightDir.z;
+
 	return true;
 }	
 
+float3 reflect(float3 V, float3 N){
+	return V - 2.0f * dot( V, N ) * N;
+}
+
 //遍历叶子节点的三角面片
-uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3LightDir, float* fDst,  struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, int* flag)
+uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3LightDir, float* fDst,  struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, float3* f3NextPos, float3* f3NextDir, float* cosAl, int* flag)
 {
-	uchar3 f3Res = (uchar3)(255, 0, 0);
+	float3 f3Res = (float3)(255, 0, 0);
+	uchar3 uc3Res = (uchar3)(255, 0, 0);
+	float3 f3InterPos;
+	float3 R;
+	float cosAlpha;
 	for(int i=node.beg; i<=node.end; i++)
 	{
 		int idx = input[i].triangleID;
-		if( bIntersect(TriangleInfoArray[idx], f3EyePos, f3LightDir, tMin, tMax) )
+		if( bIntersect(TriangleInfoArray[idx], f3EyePos, f3LightDir, tMin, tMax, &f3InterPos) )
 		{
 #ifdef __CUSBUG__
 			printf("Intersected! %f %f", *tMin, *tMax);
 #endif
-			*flag = 0;
-			f3Res = (uchar3)(255, 255, 255);
+			
+			float3 f3LightColor = (float3)( 1, 1, 1);
+			float fLightPower = 50;
+			float3 f3MaterialDiffuseColor = (float3)(100, 100, 100);
+			float3 f3MaterialAmbientColor = (float3)(0.1, 0.1, 0.1)* f3MaterialDiffuseColor;
+			float3 f3MaterialSpecularColor = (float3)(0.3, 0.3, 0.3);
+			float fDistPosToLight = distance(f3InterPos, cf3LightPos);
+			float fDistPosToEye = distance(f3InterPos, f3EyePos);
+
+			if( fDistPosToEye >= *fDst) 
+			{
+				break;
+			}
+
+			*fDst = fDistPosToEye;
+
+			float3 f3Normal = (float3)(TriangleInfoArray[idx].vecNormal.x, TriangleInfoArray[idx].vecNormal.y, TriangleInfoArray[idx].vecNormal.z);
+
+			float3 f3LightDirWS = f3InterPos - cf3LightPos;
+
+			float3 n = normalize( f3Normal );
+			//n = (-1) * n;
+			float3 l = normalize( f3LightDirWS);
+			float fTmp = dot(n,l);
+			float cosTheta = clamp( fTmp, (float) 0.0, (float) 1.0);
+
+			float3 E = normalize( f3LightDir);
+			R = reflect( l, n);
+			fTmp= dot(E, R);
+			cosAlpha = clamp(fTmp, (float) 0.0, (float) 1.0);
+			f3Res = f3MaterialAmbientColor +
+					f3MaterialDiffuseColor * f3LightColor * fLightPower * cosTheta / (fDistPosToLight * fDistPosToLight) + 
+					f3MaterialSpecularColor * f3LightColor * fLightPower * pow(cosAlpha, 5) / (fDistPosToEye * fDistPosToEye);
+
+			//printf("%f %f %f", f3Res.x, f3Res.y, f3Res.z);
+
+			uc3Res = (uchar3)(f3Res.x, f3Res.y, f3Res.z);
+			flag = 1;
 		}
 	}
 	//printf("%d", *flag);
-	return f3Res;
+
+	if( 1 == flag)
+	{
+		*f3NextPos = f3InterPos;
+		*f3NextDir = R;
+		*cosAl = cosAlpha; 
+	}
+
+	return uc3Res;
 	
 }
 
@@ -367,7 +424,7 @@ bool IsEmpty(struct Stack* sSt)
 }
 
 
-uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDir, struct SplitNode* spSplitNodeArray, float* fDst, struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, int* length)
+uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDir, struct SplitNode* spSplitNodeArray, float* fDst, struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, int* length, float3* f3NextPos, float3* f3NextDir, float* cosAlpha, int* flag)
 {
 	//背景颜色
 	uchar3 f3Res = (uchar3)(255, 0, 0);
@@ -439,8 +496,8 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 	struct Stack sStack;
 	InitStack(&sStack, (*length));
 	PushStack(&sStack, root);
-	int flag = 1;
-	while( !IsEmpty(&sStack) && ( flag == 1 ))
+	
+	while( !IsEmpty(&sStack)  )
 	{
 		struct SplitNode snCurNode = PopStack(&sStack);
 		struct t sT;
@@ -649,7 +706,7 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 
 		if( ( snCurNode.leftChild == -1 ) && ( snCurNode.rightChild == -1 ))
 		{
-			f3Res = RayCrossTraingleTest( snCurNode, f3EyePos, f3LightDir, fDst, TriangleInfoArray, input, tMin, tMax, &flag );
+			f3Res = RayCrossTraingleTest( snCurNode, f3EyePos, f3LightDir, fDst, TriangleInfoArray, input, tMin, tMax, f3NextPos, f3NextDir, cosAlpha, flag);
 		}
 	}
 
@@ -661,7 +718,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 {
 	float tMin = 0;
 	float tMax = 0;
-	float fDst = 10000;
+	
 	float3 f3EyePos = (float3)(0, 0, 5.0);
 	int idx = get_global_id(0);
 	
@@ -684,14 +741,54 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 #endif
 
 #ifdef __TWODIMCAL__
-	int i = get_global_id(1);
+	/*int i = get_global_id(1);
 	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 3.5);
 	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
 
 	uchar3 f3Res = RayCrossAABBTest(spSplitNodeArray[0], f3EyePos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length);
 	pcResPB[(i*(*iWinWidth)+idx)*3] = f3Res.x;
 	pcResPB[(i*(*iWinWidth)+idx)*3 + 1] = f3Res.y;
+	pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;*/
+
+	int i = get_global_id(1);
+	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 3.5);
+
+	float3 f3Pos = f3EyePos;
+	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
+
+	uchar3 f3Res;
+	int flag = 0;
+	for(int i = 0; i<MAXITER; i++)
+	{
+		flag = 0;
+		float3 f3NextPos;
+		float3 f3NextDir;
+		float fDst = 10000;
+		uchar3 uc3TmpColor;
+		float cosAlpha;
+		uc3TmpColor = RayCrossAABBTest(spSplitNodeArray[0], f3Pos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length, &f3NextPos, &f3NextDir, &cosAlpha, &flag);
+
+		if( 0 == flag) break; //表示没有找打送相交的三角面片
+		if( 0 == i)
+		{
+			f3Res = uc3TmpColor;
+		}
+		if( 0 != i)
+		{
+			float fDist = distance(f3Pos, f3NextPos);
+			
+			f3Res = f3Res + uc3TmpColor*50.0*cosAlpha / (fDist*fDist);
+		}
+		f3Pos = f3NextPos;
+		f3LightDir = f3NextPos;
+
+	}
+
+	
+	pcResPB[(i*(*iWinWidth)+idx)*3] = f3Res.x;
+	pcResPB[(i*(*iWinWidth)+idx)*3 + 1] = f3Res.y;
 	pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;
+
 #endif
 
 }

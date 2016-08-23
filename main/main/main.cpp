@@ -46,11 +46,11 @@ void main(int argc, char** argv)
 		exit(0);
 	}
 
-	/*glfwWindowHint(GLFW_SAMPLES, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_SAMPLES, 4);
+	/*glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); 
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);*/
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); */
+	/*glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);*/
 
 	window = glfwCreateWindow(iWidth, iHeight, " OpenCL-OpenGL-Program", NULL, NULL);
 	if ( window == NULL)
@@ -88,7 +88,7 @@ void main(int argc, char** argv)
 	bool bRes = loadOBJ( ccpFileName, vv3Verts, vv2UVs, vv3Nor);
 
 	DrawableInfo* pRes = new DrawableInfo;
-	pRes = getTriangles(&vv3Verts[0], vv3Verts.size());
+	pRes = getTriangles(&vv3Verts[0], &vv3Nor[0], vv3Verts.size());
 
 	//…Ë÷√OpenCLª∑æ≥
 	cl_int uiStatus;
@@ -139,7 +139,7 @@ void main(int argc, char** argv)
 
 	cl_program clpProgram = clCreateProgramWithSource(clContext, 1,	&ccSource, &stFileLen, &uiStatus);
 	checkErr(uiStatus, "fail to create program");
-	const char ccOptions[] ="-cl-std=CL1.1 -D T0 -D NMAX";
+	const char ccOptions[] ="-cl-std=CL1.1 -D T0 -D NMAX -D MAXITER -w ";
 	uiStatus = clBuildProgram(clpProgram, 1, &svDeviceIDs[0], ccOptions, 0, 0);
 	if ( CL_SUCCESS != uiStatus )
 	{
