@@ -27,10 +27,13 @@ using namespace glm;
 #include "custom.h"
 
 
+//#define __ONEDIMCAL__
+#define __TWODIMCAL__
+
 int iWidth= 768;
 int iHeight = 512;
 
-
+const char* ccpFileName = "bunny_new.obj";
 
 
 void main(int argc, char** argv)
@@ -82,7 +85,7 @@ void main(int argc, char** argv)
 	std::vector<glm::vec2> vv2UVs;
 	std::vector<glm::vec3> vv3Nor;
 
-	bool bRes = loadOBJ("suzanne.obj", vv3Verts, vv2UVs, vv3Nor);
+	bool bRes = loadOBJ( ccpFileName, vv3Verts, vv2UVs, vv3Nor);
 
 	DrawableInfo* pRes = new DrawableInfo;
 	pRes = getTriangles(&vv3Verts[0], vv3Verts.size());
@@ -465,9 +468,17 @@ void main(int argc, char** argv)
 	cl_mem lengthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_int), &cliLength, &uiStatus);
 	clSetKernelArg(ckRayTraceKernel, 6, sizeof(cl_mem), &lengthMem);
 
+#ifdef __ONEDIMCAL__
 	size_t stGlobalSize = {iWidth};
-	size_t stLocalSize = {64};
+	size_t stLocalSize = {256};
 	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 1, NULL, &stGlobalSize, &stLocalSize, 0, 0, 0);
+#endif
+
+#ifdef __TWODIMCAL__
+	size_t stGlobalSize[2] = {iWidth, iHeight};
+	size_t stLocalSize[2] = {16,16};
+	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 2, NULL, &stGlobalSize[0], &stLocalSize[0], 0, 0, 0);
+#endif
 	clFinish(clQueue);
 
 	std::vector<cl_uchar> pcPixelBufferOut(iWidth*iHeight*3, 100);

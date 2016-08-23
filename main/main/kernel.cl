@@ -2,6 +2,9 @@
 //#define __CUSBUG__
 #endif
 
+//#define __ONEDIMCAL__
+#define __TWODIMCAL__
+
 #define DEC_SPEED 0.1
 
 
@@ -661,25 +664,34 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	float fDst = 10000;
 	float3 f3EyePos = (float3)(0, 0, 5.0);
 	int idx = get_global_id(0);
-
+	
+#ifdef __ONEDIMCAL__
 	for(int i = 0; i<(*iWinHeight); i++)
 	{
 
 		float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 0.9);
 		float3 f3LightDir = normalize(f3PixPos - f3EyePos);
 
-#ifdef __CUSBUG__
-		//printf("%f %f %f", f3LightDir.x, f3LightDir.y, f3LightDir.z);
-#endif
+
 
 		uchar3 f3Res = RayCrossAABBTest(spSplitNodeArray[0], f3EyePos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length);
 		pcResPB[(i*(*iWinWidth)+idx)*3] = f3Res.x;
 		pcResPB[(i*(*iWinWidth)+idx)*3 + 1] = f3Res.y;
 		pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;
 
-#ifdef __CUSBUG__
-		//printf("%d %d %d", f3Res.x, f3Res.y, f3Res.z);
-#endif
+
 	}
+#endif
+
+#ifdef __TWODIMCAL__
+	int i = get_global_id(1);
+	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 3.5);
+	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
+
+	uchar3 f3Res = RayCrossAABBTest(spSplitNodeArray[0], f3EyePos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length);
+	pcResPB[(i*(*iWinWidth)+idx)*3] = f3Res.x;
+	pcResPB[(i*(*iWinWidth)+idx)*3 + 1] = f3Res.y;
+	pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;
+#endif
 
 }
