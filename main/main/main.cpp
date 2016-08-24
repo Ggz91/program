@@ -27,11 +27,10 @@ using namespace glm;
 #include "custom.h"
 
 
-//#define __ONEDIMCAL__
-#define __TWODIMCAL__
 
-int iWidth= 768;
-int iHeight = 512;
+
+int iWidth= 1024;
+int iHeight = 768;
 
 const char* ccpFileName = "bunny_new.obj";
 
@@ -139,7 +138,7 @@ void main(int argc, char** argv)
 
 	cl_program clpProgram = clCreateProgramWithSource(clContext, 1,	&ccSource, &stFileLen, &uiStatus);
 	checkErr(uiStatus, "fail to create program");
-	const char ccOptions[] ="-cl-std=CL1.1 -D T0 -D NMAX -D MAXITER -w ";
+	const char ccOptions[] ="-cl-std=CL1.1 ";//-DT0  -DNMAX -DDEC_SPEED -DMAXITER -w ";
 	uiStatus = clBuildProgram(clpProgram, 1, &svDeviceIDs[0], ccOptions, 0, 0);
 	if ( CL_SUCCESS != uiStatus )
 	{
@@ -162,7 +161,7 @@ void main(int argc, char** argv)
 	
 
 
-	DWORD sortBeg = GetTickCount();
+	DWORD dwBuildBeg = GetTickCount();
 	//使用OpenCL的方法给三角面片进行排序
 	int len = pRes->triangleCandidateSplitPlaneArray.size();
 	std::vector<TriangleCandidateSplitPlane> input = pRes->triangleCandidateSplitPlaneArray;
@@ -209,10 +208,9 @@ void main(int argc, char** argv)
 		}
 		//std::cout<<std::endl;
 	}
-	DWORD sortEnd = GetTickCount();
-	std::cout<<"the sort diff is "<< sortEnd - sortBeg <<std::endl;
 
-	DWORD splitBeg = GetTickCount();
+
+
 
 	clFinish(clQueue);
 	//按照splitNode的结构来分割inputMem，并生成一个splitNode的数组
@@ -238,12 +236,16 @@ void main(int argc, char** argv)
 	firstSplitNode.zMin = input[0].zMin;
 	splitNodeArray[0] = firstSplitNode;
 
+	cl_mem maxSizeMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &maxSplitNodeArrayLength, &uiStatus);
+	clSetKernelArg(kernelSAHSplit, 6, sizeof(cl_mem), &maxSizeMem);
+
+#ifdef __OPT__
 	cl_mem splitNodeArrayMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(SplitNode)*maxSplitNodeArrayLength, &splitNodeArray[0], &uiStatus);
 	checkErr(uiStatus, "clCreateBuffer of splitNodeArrayMem error");
 
 	clSetKernelArg(kernelSAHSplit, 1, sizeof(cl_mem), &splitNodeArrayMem);
 
-
+ 
 	int maxLayerLenght = getMin2Power(input.size());
 	std::vector<int> randArray(maxLayerLenght);
 	for (int i = 0; i< maxLayerLenght; i++)
@@ -260,11 +262,9 @@ void main(int argc, char** argv)
 		//std::cout<<randPro[i]<<std::endl;
 
 	}
+	
 	cl_mem randProMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(float)*randPro.size(), &randPro[0], &uiStatus);
 	clSetKernelArg(kernelSAHSplit, 5, sizeof(cl_mem), &randProMem);
-
-	cl_mem maxSizeMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &maxSplitNodeArrayLength, &uiStatus);
-	clSetKernelArg(kernelSAHSplit, 6, sizeof(cl_mem), &maxSizeMem);
 
 	int depth = 0;
 	for(int i = 1; (i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1) && (depth < MAXDEPTH); i++)
@@ -291,20 +291,60 @@ void main(int argc, char** argv)
 		depth++;
 	}
 
-	DWORD splitEnd = GetTickCount();
-	std::cout<<"the split time diff is "<<splitEnd - splitBeg<<std::endl;
+	clFinish(clQueue);
 
-	/*std::vector<SplitNode> nodeStructureArray(maxSplitNodeArrayLength);
-	clEnqueueReadBuffer(clQueue, splitNodeArrayMem, CL_TRUE, 0, sizeof(SplitNode)*nodeStructureArray.size(), &nodeStructureArray[0],0, 0, 0);*/
+	DWORD dwBuildEnd = GetTickCount();
+	std::cout<<"the time cost of building Opt-KD-tree is "<<dwBuildEnd - dwBuildBeg<<std::endl;
+#endif
 
+	//普通的kd-tree建树方法
+#ifdef __COMM__
+	cl_kernel ckCommSplitKernel = clCreateKernel(clpProgram, "CommSAHSplit", &uiStatus);
+	checkErr(uiStatus, "fail to create CommSplitKernel");
+	
+	cl_mem commSplitNodeArrayMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_WRITE, sizeof(SplitNode)*maxSplitNodeArrayLength, &splitNodeArray[0], &uiStatus);
+
+	clSetKernelArg(ckCommSplitKernel, 0, sizeof(cl_mem), &inputMem);
+	clSetKernelArg(ckCommSplitKernel, 1, sizeof(cl_mem), &commSplitNodeArrayMem);
+	clSetKernelArg(ckCommSplitKernel, 4, sizeof(cl_mem), &maxSizeMem);
+
+	int depth = 0;
+	for(int i = 1; (i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1) && (depth < MAXDEPTH); i++)
+	{
+
+		int splitNodeArrayBeg = pow(2.0, i - 1) - 1;
+		int splitNodeArrayEnd = pow(2.0, i) - 2;
+
+		size_t layerLength = splitNodeArrayEnd - splitNodeArrayBeg + 1;
+		const size_t globalSize = layerLength;
+		const size_t localSize = 64;
+
+		cl_mem splitNodeArrayBegMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayBeg, &uiStatus);
+		checkErr(uiStatus, "clCreateBuffer of splitNodeArrayBegMem error");
+		cl_mem splitNodeArrayEndMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayEnd, &uiStatus);
+
+		clSetKernelArg(ckCommSplitKernel, 2, sizeof(cl_mem), &splitNodeArrayBegMem);
+		clSetKernelArg(ckCommSplitKernel, 3, sizeof(cl_mem), &splitNodeArrayEndMem);
+
+		uiStatus = clEnqueueNDRangeKernel(clQueue, ckCommSplitKernel, 1, 0, &globalSize, &localSize, 0, NULL, NULL);
+
+		clReleaseMemObject(splitNodeArrayBegMem);
+		clReleaseMemObject(splitNodeArrayEndMem);
+		depth++;
+	}
 
 	clFinish(clQueue);
 
+	DWORD dwCommBuildEnd = GetTickCount();
+	std::cout<<"the time cost of building Comm-KD-tree is "<<dwCommBuildEnd - dwBuildBeg<<std::endl;
+#endif
 	//释放资源
 	clReleaseKernel(clKernel);
 	clReleaseKernel(kernelSAHSplit);
+#ifdef __OPT__
 	clReleaseMemObject(randProMem);
 	clReleaseMemObject(randArrayMem);
+#endif
 	//clReleaseMemObject(splitNodeArrayMem);
 	clReleaseMemObject(dirMem);
 
@@ -427,7 +467,12 @@ void main(int argc, char** argv)
 	cl_mem cmWinHeightMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &iHeight, &uiStatus);
 	checkErr(uiStatus, "fail to create height buffer");
 	
+#ifdef __OPT__
 	clSetKernelArg(ckRayTraceKernel, 0, sizeof(cl_mem), &splitNodeArrayMem);
+#endif
+#ifdef __COMM__
+	clSetKernelArg(ckRayTraceKernel, 0, sizeof(cl_mem), &commSplitNodeArrayMem);
+#endif
 	clSetKernelArg(ckRayTraceKernel, 1, sizeof(cl_mem), &cmWinWidthMem);
 	clSetKernelArg(ckRayTraceKernel, 2, sizeof(cl_mem), &cmWinHeightMem);
 	
@@ -481,13 +526,14 @@ void main(int argc, char** argv)
 #endif
 	clFinish(clQueue);
 
+	DWORD dwRenderEnd = GetTickCount();
+	std::cout<<" the PBO is completed"<<std::endl;
+	std::cout<<" the opt-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
+
 	std::vector<cl_uchar> pcPixelBufferOut(iWidth*iHeight*3, 100);
 	clEnqueueReadBuffer(clQueue, clmPBOMem, CL_TRUE, 0, 3*iWidth*iHeight*sizeof(cl_uchar), &pcPixelBufferOut[0], NULL, NULL, NULL);
 	clFinish(clQueue);
 
-	DWORD dwRenderEnd = GetTickCount();
-	std::cout<<" the PBO is completed"<<std::endl;
-	std::cout<<" the render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
 
 	std::freopen("PBO.txt", "w", stdout);
 
@@ -519,7 +565,12 @@ void main(int argc, char** argv)
 	//释放资源
 	clReleaseProgram(clpProgram);
 	clReleaseMemObject(inputMem);
+#ifdef __OPT__
 	clReleaseMemObject(splitNodeArrayMem);
+#endif
+#ifdef __COMM__
+	clReleaseMemObject(commSplitNodeArrayMem);
+#endif
 	clReleaseMemObject(cmWinHeightMem);
 	clReleaseCommandQueue(clQueue);
 
