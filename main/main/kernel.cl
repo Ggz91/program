@@ -6,6 +6,9 @@
 //#define __ONEDIMCAL__
 #define __TWODIMCAL__
 
+#define __REALTIME__
+//#define __NREALTIME__
+
 #define T0 20		//模拟退火算法中的初始温度
 #define NMAX 25		//模拟退火算法中一次降温的采样数
 #define MAXITER	1
@@ -711,6 +714,7 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 	return f3Res;
 
 }
+#ifdef __NREALTIME__
 
 __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __global const int* iWinWidth, __global const int* iWinHeight, __global uchar* pcResPB, __global const struct TriangleInfo* TriangleInfoArray, __global const struct TriangleCandidateSplitPlane* input, __global const int*  length)
 {
@@ -794,5 +798,96 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 #endif
 
 }
+#endif
+
+#ifdef __REALTIME__
+__kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __global const int* iWinWidth, __global const int* iWinHeight, __global unsigned char* pcResPB, __global const struct TriangleInfo* TriangleInfoArray, __global const struct TriangleCandidateSplitPlane* input, __global const int*  length)
+{
+	float tMin = 0;
+	float tMax = 0;
+	
+	float3 f3EyePos = (float3)(0, 0, 5.0);
+	int idx = get_global_id(0);
+	
+#ifdef __ONEDIMCAL__
+	for(int i = 0; i<(*iWinHeight); i++)
+	{
+
+		float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 0.9);
+		float3 f3LightDir = normalize(f3PixPos - f3EyePos);
 
 
+
+		uchar3 f3Res = RayCrossAABBTest(spSplitNodeArray[0], f3EyePos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length);
+		pcResPB[(i*(*iWinWidth)+idx)*3] = f3Res.x;
+		pcResPB[(i*(*iWinWidth)+idx)*3 + 1] = f3Res.y;
+		pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;
+
+
+	}
+#endif
+
+#ifdef __TWODIMCAL__
+	/*int i = get_global_id(1);
+	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 3.5);
+	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
+	float fDst = 10000;
+	int flag = 0;
+	float3 f3NextPos;
+	float3 f3NextDir;
+	float cosAlpha;
+	uchar3 f3Res = RayCrossAABBTest(spSplitNodeArray[0], f3EyePos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length, &f3NextPos, &f3NextDir, &cosAlpha, &flag);
+	pcResPB[(i*(*iWinWidth)+idx)*3] = f3Res.x;
+	pcResPB[(i*(*iWinWidth)+idx)*3 + 1] = f3Res.y;
+	pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;*/
+
+	int i = get_global_id(1);
+	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 3.5);
+
+	float3 f3Pos = f3EyePos;
+	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
+
+	uchar3 f3Res;
+	int flag = 0;
+	for(int i = 0; i<MAXITER; i++)
+	{
+		flag = 0;
+		float3 f3NextPos;
+		float3 f3NextDir;
+		float fDst = 10000;
+		uchar3 uc3TmpColor;
+		float cosAlpha;
+		uc3TmpColor = RayCrossAABBTest(spSplitNodeArray[0], f3Pos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length, &f3NextPos, &f3NextDir, &cosAlpha, &flag);
+		
+		/*printf("%d %d %d", uc3TmpColor.x, uc3TmpColor.y, uc3TmpColor.z);*/
+		if( 0 == flag) break; //表示没有找打送相交的三角面片
+		if( 0 == i)
+		{
+			f3Res = uc3TmpColor;
+		}
+		if( 0 != i)
+		{
+			float fDist = distance(f3Pos, f3NextPos);
+			
+			f3Res = f3Res + uc3TmpColor*50.0*cosAlpha / (fDist*fDist);
+		}
+		f3Pos = f3NextPos;
+		f3LightDir = f3NextPos;
+
+	}
+
+	pcResPB[(i*(*iWinWidth)+idx)*4] = f3Res.x;
+	pcResPB[(i*(*iWinWidth)+idx)*4 + 1] = f3Res.y;
+	pcResPB[(i*(*iWinWidth)+idx)*4 + 2] = f3Res.z;
+	pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 0;
+	/*pcResPB[i*(*iWinWidth)+idx].x = f3Res.x;
+	pcResPB[i*(*iWinWidth)+idx].y = f3Res.y;
+	pcResPB[i*(*iWinWidth)+idx].z = f3Res.z;
+	pcResPB[i*(*iWinWidth)+idx].w = 0;*/
+	
+	
+#endif
+
+}
+
+#endif

@@ -18,6 +18,8 @@
     <None Include="kernel.cl" />
     <None Include="Shader.vs" />
     <None Include="Shader.fs" />
+    <None Include="secondFrag.fs" />
+    <None Include="secondVert.vs" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\OpenGLLib\include\common\controls.hpp">

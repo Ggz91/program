@@ -9,10 +9,10 @@
 
  //KD-Tree的最大深度
 #define MAXDEPTH 20
-#define T0 2	//模拟退火算法中的初始温度
-#define NMAX 2		//模拟退火算法中一次降温的采样数
-#define MAXITER	1
-#define DEC_SPEED 0.5
+#define T0 20	//模拟退火算法中的初始温度
+#define NMAX 25		//模拟退火算法中一次降温的采样数
+//#define MAXITER	2
+//#define DEC_SPEED 0.5
 
 
 //#define __ONEDIMCAL__
@@ -21,7 +21,8 @@
 #define __OPT__
 //#define __COMM__
 
-
+#define __REALTIME__
+//#define __NREALTIME__
 typedef enum 
 {
 	PRINT_INFO = 0xf00000,

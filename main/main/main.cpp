@@ -29,10 +29,11 @@ using namespace glm;
 
 
 
-int iWidth= 1024;
-int iHeight = 768;
+int ciWidth= 1024;
+int ciHeight = 768;
 
-const char* ccpFileName = "bunny_new.obj";
+const char* ccpFileName = "bunny.obj";
+//const char* ccpFileName = "suzanne.obj";
 
 
 void main(int argc, char** argv)
@@ -46,12 +47,16 @@ void main(int argc, char** argv)
 	}
 
 	glfwWindowHint(GLFW_SAMPLES, 4);
-	/*glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+#ifdef __REALTIME__
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); */
-	/*glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);*/
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); 
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#endif
+	
+	
 
-	window = glfwCreateWindow(iWidth, iHeight, " OpenCL-OpenGL-Program", NULL, NULL);
+	window = glfwCreateWindow(ciWidth, ciHeight, " OpenCL-OpenGL-Program", NULL, NULL);
 	if ( window == NULL)
 	{
 		checkErr(PRINT_INFO, "fail to open glfw window!");
@@ -77,7 +82,7 @@ void main(int argc, char** argv)
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	glfwPollEvents();
-	glfwSetCursorPos(window, iWidth/2, iHeight/2);
+	glfwSetCursorPos(window, ciWidth/2, ciHeight/2);
 
 	//读取obj文件的数据
 	std::vector<glm::vec3> vv3Verts;
@@ -107,12 +112,15 @@ void main(int argc, char** argv)
 	uiStatus = clGetDeviceIDs(svPlatformIDs[0], CL_DEVICE_TYPE_GPU, iDeviceNum, &svDeviceIDs[0], NULL);
 	checkErr(uiStatus, "fail to get the ids of devices");
 
+
 	//创建OpenCL-OpenGL环境
 	cl_context_properties clProp[]={
-		/*CL_GL_CONTEXT_KHR,
+#ifdef __REALTIME__
+		CL_GL_CONTEXT_KHR,
 		(cl_context_properties)wglGetCurrentContext(),
 		CL_WGL_HDC_KHR,
-		(cl_context_properties)wglGetCurrentDC(),*/
+		(cl_context_properties)wglGetCurrentDC(),
+#endif
 		CL_CONTEXT_PLATFORM,
 		(cl_context_properties)svPlatformIDs[0],
 		0
@@ -462,9 +470,9 @@ void main(int argc, char** argv)
 	cl_kernel ckRayTraceKernel = clCreateKernel(clpProgram, "RayTrace", &uiStatus);
 	checkErr(uiStatus, "fail to create kernel");
 
-	cl_mem cmWinWidthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &iWidth, &uiStatus);
+	cl_mem cmWinWidthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &ciWidth, &uiStatus);
 	checkErr(uiStatus, "fail to create width buffer");
-	cl_mem cmWinHeightMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &iHeight, &uiStatus);
+	cl_mem cmWinHeightMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &ciHeight, &uiStatus);
 	checkErr(uiStatus, "fail to create height buffer");
 	
 #ifdef __OPT__
@@ -498,10 +506,44 @@ void main(int argc, char** argv)
 	clEnqueueReleaseGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
 	checkErr(uiStatus, "fail to excute kernel");
 	clFinish(clQueue);*/
-	std::vector<cl_uchar> pcPixelBufferIn(iWidth*iHeight*3);
-	cl_mem clmPBOMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE  | CL_MEM_COPY_HOST_PTR, 3*iWidth*iHeight*sizeof(cl_uchar), &pcPixelBufferIn[0], &uiStatus);
+#ifdef __REALTIME__
+	//渲染到纹理，使用OpenCL与OpenGL共享的texture
+	GLuint uiFbo;
+	glGenFramebuffers(1, &uiFbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, uiFbo);
+
+	GLuint uiRenderedTexture;
+	glGenTextures(1, &uiRenderedTexture);
+	glBindTexture(GL_TEXTURE_2D, uiRenderedTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ciWidth, ciHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+	GLuint uiPBO;
+	glGenBuffers(1, &uiPBO);
+	glBindBuffer(GL_ARRAY_BUFFER, uiPBO);
+	glBufferData(GL_ARRAY_BUFFER, ciWidth*ciHeight*4*sizeof(unsigned char), 0, GL_STREAM_DRAW);
+
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, uiRenderedTexture, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+
+	cl_mem clmPBOMem = clCreateFromGLBuffer(clContext, CL_MEM_WRITE_ONLY, uiPBO, &uiStatus);
+	checkErr(uiStatus, "fail to create clmPBOMem");
+	clSetKernelArg(ckRayTraceKernel, 3, sizeof(cl_mem), &clmPBOMem);
+#endif
+	
+#ifdef __NREALTIME__
+	std::vector<cl_uchar> pcPixelBufferIn(ciWidth*ciHeight*3);
+	cl_mem clmPBOMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE  | CL_MEM_COPY_HOST_PTR, 3*ciWidth*ciHeight*sizeof(cl_uchar), &pcPixelBufferIn[0], &uiStatus);
 	checkErr(uiStatus, "fail to create PBO buffer");
 	clSetKernelArg(ckRayTraceKernel, 3, sizeof(cl_mem), &clmPBOMem);
+#endif
+	
 
 	std::vector<TriangleInfo> svTriangleInfo = pRes->triangleInfoArray;
 	cl_mem clmTriangleInfoMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, sizeof(TriangleInfo)*pRes->triangleInfoArray.size(), &svTriangleInfo[0], &uiStatus);
@@ -514,30 +556,51 @@ void main(int argc, char** argv)
 	clSetKernelArg(ckRayTraceKernel, 6, sizeof(cl_mem), &lengthMem);
 
 #ifdef __ONEDIMCAL__
-	size_t stGlobalSize = {iWidth};
+	size_t stGlobalSize = {ciWidth};
 	size_t stLocalSize = {256};
 	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 1, NULL, &stGlobalSize, &stLocalSize, 0, 0, 0);
 #endif
 
 #ifdef __TWODIMCAL__
-	size_t stGlobalSize[2] = {iWidth, iHeight};
+	size_t stGlobalSize[2] = {ciWidth, ciHeight};
 	size_t stLocalSize[2] = {16,16};
+#ifdef __NREALTIME__
 	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 2, NULL, &stGlobalSize[0], &stLocalSize[0], 0, 0, 0);
-#endif
 	clFinish(clQueue);
+#endif
+	
+#ifdef __REALTIME__
+	glFinish();
+	clEnqueueAcquireGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 2, NULL, &stGlobalSize[0], &stLocalSize[0], 0, 0, 0);
+	clFinish(clQueue);
+	clEnqueueReleaseGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+	checkErr(uiStatus, "fail to excute kernel");
+	clFinish(clQueue);
+#endif
+#endif
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uiPBO);
+	glBindTexture(GL_TEXTURE_2D, uiRenderedTexture);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ciWidth, ciHeight, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
 	DWORD dwRenderEnd = GetTickCount();
 	std::cout<<" the PBO is completed"<<std::endl;
+#ifdef __COMM__
+	std::cout<<" the comm-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
+#endif
+#ifdef __OPT__
 	std::cout<<" the opt-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
+#endif
 
-	std::vector<cl_uchar> pcPixelBufferOut(iWidth*iHeight*3, 100);
-	clEnqueueReadBuffer(clQueue, clmPBOMem, CL_TRUE, 0, 3*iWidth*iHeight*sizeof(cl_uchar), &pcPixelBufferOut[0], NULL, NULL, NULL);
+#ifdef __NREALTIME__
+	std::vector<cl_uchar> pcPixelBufferOut(ciWidth*ciHeight*3, 100);
+	clEnqueueReadBuffer(clQueue, clmPBOMem, CL_TRUE, 0, 3*ciWidth*ciHeight*sizeof(cl_uchar), &pcPixelBufferOut[0], NULL, NULL, NULL);
 	clFinish(clQueue);
 
 
 	std::freopen("PBO.txt", "w", stdout);
 
-	for(int i=0; i<iWidth*iHeight*3; i++)
+	for(int i=0; i<ciWidth*ciHeight*3; i++)
 	{
 		std::cout<<pcPixelBufferOut[i]<<" ";
 		if ( i%3 == 2)
@@ -555,11 +618,97 @@ void main(int argc, char** argv)
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glRasterPos2f(-1, -1);
-		glDrawPixels(iWidth, iHeight, GL_RGB, GL_UNSIGNED_BYTE, &pcPixelBufferOut[0]);
+		glDrawPixels(ciWidth, ciHeight, GL_RGB, GL_UNSIGNED_BYTE, &pcPixelBufferOut[0]);
 		glfwSwapBuffers(window);
 	} while (1);
 
+#endif
+	
 
+#ifdef __REALTIME__ 
+	static const GLfloat g_quad_vertex_buffer_data[] = { 
+		-1.0f, -1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f,
+		1.0f,  1.0f, 0.0f,
+	};
+	/*static const GLfloat g_quad_vertex_buffer_data[] = { 
+		-0.5f, -0.5f, 0.0f,
+		0.5f, -0.5f, 0.0f,
+		-0.5f,  0.5f, 0.0f,
+		-0.5f,  0.5f, 0.0f,
+		0.5f, -0.5f, 0.0f,
+		0.5f,  0.5f, 0.0f,
+	};*/
+	static const GLfloat UV[] = { 
+		0.0f, 0.0f, 
+		1.0f, 0.0f, 
+		0.0f,  1.0f, 
+		0.0f,  1.0f, 
+		1.0f, 0.0f, 
+		1.0f,  1.0f, 
+	};
+
+	GLuint VertexArrayID;
+	glGenVertexArrays(1, &VertexArrayID);
+	glBindVertexArray(VertexArrayID);
+
+	GLuint quad_vertexbuffer;
+	glGenBuffers(1, &quad_vertexbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
+
+	GLuint uv;
+	glGenBuffers(1, &uv);
+	glBindBuffer(GL_ARRAY_BUFFER, uv);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(UV), UV, GL_STATIC_DRAW);
+	GLuint secondProgram = LoadShaders("secondVert.vs", "secondFrag.fs");
+	GLuint texID = glGetUniformLocation(secondProgram, "renderedTexture");
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+	do 
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, ciWidth, ciHeight);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glUseProgram(secondProgram);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, uiRenderedTexture);
+		glUniform1i(texID, 0);
+
+		glEnableVertexAttribArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+		glVertexAttribPointer(
+			0,
+			3,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			(void*)0
+			);
+
+		glEnableVertexAttribArray(1);
+		glBindBuffer(GL_ARRAY_BUFFER, uv);
+		glVertexAttribPointer(
+			1,
+			2,
+			GL_FLOAT,
+			GL_FALSE,
+			0,
+			(void*)0
+			);
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	} while (1);
+	
+#endif	
 	
 
 	//释放资源
