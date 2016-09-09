@@ -15,7 +15,7 @@
 #define DEC_SPEED 0.5
 
 const float3 cf3LightPos = (float3)(5, 0, 0);
-
+const float  cfMouseSpeed = 0.01f;
 struct TriangleCandidateSplitPlane
 {
 	int triangleID;
@@ -382,8 +382,8 @@ float3 reflect(float3 V, float3 N){
 //遍历叶子节点的三角面片
 uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3LightDir, float* fDst,  struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, float3* f3NextPos, float3* f3NextDir, float* cosAl, int* flag)
 {
-	float3 f3Res = (float3)(255, 0, 0);
-	uchar3 uc3Res = (uchar3)(255, 0, 0);
+	float3 f3Res = (float3)(153, 51, 250);
+	uchar3 uc3Res = (uchar3)(153, 51, 250);
 	float3 f3InterPos;
 	float3 R;
 	float cosAlpha;
@@ -509,7 +509,7 @@ bool IsEmpty(struct Stack* sSt)
 uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDir, struct SplitNode* spSplitNodeArray, float* fDst, struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, int* length, float3* f3NextPos, float3* f3NextDir, float* cosAlpha, int* flag)
 {
 	//背景颜色
-	uchar3 f3Res = (uchar3)(255, 0, 0);
+	uchar3 f3Res = (uchar3)(8, 46, 84);
 	////判断是不是最终的叶子节点
 	//if( (root.leftChild == -1 ) && (root.rightChild == -1)) 
 	//{
@@ -801,12 +801,14 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 #endif
 
 #ifdef __REALTIME__
-__kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __global const int* iWinWidth, __global const int* iWinHeight, __global unsigned char* pcResPB, __global const struct TriangleInfo* TriangleInfoArray, __global const struct TriangleCandidateSplitPlane* input, __global const int*  length)
+__kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __global const int* iWinWidth, __global const int* iWinHeight, __global unsigned char* pcResPB, __global const struct TriangleInfo* TriangleInfoArray, __global const struct TriangleCandidateSplitPlane* input, __global const int*  length, __global const double* xPos, __global const double* yPos)
 {
+
+
 	float tMin = 0;
 	float tMax = 0;
 	
-	float3 f3EyePos = (float3)(0, 0, 5.0);
+	float3 f3EyePos = (float3)(0, 0, -5.0);
 	int idx = get_global_id(0);
 	
 #ifdef __ONEDIMCAL__
@@ -842,8 +844,50 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;*/
 
 	int i = get_global_id(1);
-	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, 3.5);
+	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, -3.5);
+	float fR = 1.5;
+	float fDx = (idx - (*iWinWidth)/2.0)/256.0;
+	float fDy = (i - (*iWinHeight)/2.0)/256.0;
+	float tanAlpha = (*xPos- (*iWinWidth)/2.0)/256* cfMouseSpeed;
+	float tanBeta = (*yPos - (*iWinHeight)/2.0)/256* cfMouseSpeed;
+	float sinAlpha = tanAlpha / sqrt(pown(tanAlpha,2) + 1);
+	float cosAlpha = 1 / sqrt(pown(tanAlpha,2) + 1);
+	float sinBeta = tanBeta / sqrt(pown(tanBeta, 2) + 1);
+	float cosBeta = 1 / sqrt(pown(tanBeta, 2) + 1);
+	
+	
 
+
+	float4 f4PixPos = (float4)(f3PixPos, 1);
+	
+	struct mat4 m4Trans1, m4Trans2;
+	m4Trans1.l0 = (float4)(1, 0, 0, 0);
+	m4Trans1.l1 = (float4)(0, 1, 0, 0);
+	m4Trans1.l2 = (float4)(0, 0, 1, -1*fR);
+	m4Trans1.l3 = (float4)(0, 0, 0, 1);
+
+	m4Trans2.l0 = (float4)(1, 0, 0, 0);
+	m4Trans2.l1 = (float4)(0, 1, 0, 0);
+	m4Trans2.l2 = (float4)(0, 0, 1, fR);
+	m4Trans2.l3 = (float4)(0, 0, 0, 1);
+
+	struct mat4 m4RotaX, m4RotaY;
+	m4RotaX.l0 = (float4)(1, 0, 0, 0);
+	m4RotaX.l1 = (float4)(0, cosAlpha, sinAlpha, 0);
+	m4RotaX.l2 = (float4)(0, -1*sinAlpha, cosAlpha, 0);
+	m4RotaX.l3 = (float4)(0, 0, 0, 1);
+	
+	m4RotaY.l0 = (float4)(cosBeta, 0, sinBeta, 0);
+	m4RotaY.l1 = (float4)(0, 1, 0, 0);
+	m4RotaY.l2 = (float4)(0, -1*sinBeta, cosBeta, 0);
+	m4RotaY.l3 = (float4)(0, 0, 0, 1);
+
+	f4PixPos = mul(m4Trans2, mul(m4RotaY, mul(m4RotaX, mul(m4Trans1, f4PixPos))));
+
+	//printf("%f %f %f", f4PixPos.x - f3PixPos.x, f4PixPos.y - f3PixPos.y, f4PixPos.z - f3PixPos.z);
+	f3PixPos = f4PixPos.xyz;
+
+	//printf("%f %f %f", f3PixPos.x, f3PixPos.y, f3PixPos.z);
 	float3 f3Pos = f3EyePos;
 	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
 

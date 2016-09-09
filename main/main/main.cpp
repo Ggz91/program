@@ -32,7 +32,7 @@ using namespace glm;
 int ciWidth= 1024;
 int ciHeight = 768;
 
-const char* ccpFileName = "bunny.obj";
+const char* ccpFileName = "bunny_new2.obj";
 //const char* ccpFileName = "suzanne.obj";
 
 
@@ -51,7 +51,7 @@ void main(int argc, char** argv)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); 
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #endif
 	
 	
@@ -535,6 +535,9 @@ void main(int argc, char** argv)
 	cl_mem clmPBOMem = clCreateFromGLBuffer(clContext, CL_MEM_WRITE_ONLY, uiPBO, &uiStatus);
 	checkErr(uiStatus, "fail to create clmPBOMem");
 	clSetKernelArg(ckRayTraceKernel, 3, sizeof(cl_mem), &clmPBOMem);
+
+	
+
 #endif
 	
 #ifdef __NREALTIME__
@@ -555,6 +558,14 @@ void main(int argc, char** argv)
 	cl_mem lengthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_int), &cliLength, &uiStatus);
 	clSetKernelArg(ckRayTraceKernel, 6, sizeof(cl_mem), &lengthMem);
 
+	/*double dXpos, dYpos;
+	glfwGetCursorPos(window, &dXpos, &dYpos);
+
+	cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dXpos, &uiStatus);
+	clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);
+	cl_mem yposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dYpos, &uiStatus);
+	clSetKernelArg(ckRayTraceKernel, 8, sizeof(cl_mem), &yposMem);*/
+
 #ifdef __ONEDIMCAL__
 	size_t stGlobalSize = {ciWidth};
 	size_t stLocalSize = {256};
@@ -569,27 +580,27 @@ void main(int argc, char** argv)
 	clFinish(clQueue);
 #endif
 	
-#ifdef __REALTIME__
-	glFinish();
-	clEnqueueAcquireGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
-	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 2, NULL, &stGlobalSize[0], &stLocalSize[0], 0, 0, 0);
-	clFinish(clQueue);
-	clEnqueueReleaseGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
-	checkErr(uiStatus, "fail to excute kernel");
-	clFinish(clQueue);
+//#ifdef __REALTIME__
+//	glFinish();
+//	clEnqueueAcquireGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+//	uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 2, NULL, &stGlobalSize[0], &stLocalSize[0], 0, 0, 0);
+//	clFinish(clQueue);
+//	clEnqueueReleaseGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+//	checkErr(uiStatus, "fail to excute kernel");
+//	clFinish(clQueue);
+//#endif
 #endif
-#endif
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uiPBO);
-	glBindTexture(GL_TEXTURE_2D, uiRenderedTexture);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ciWidth, ciHeight, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
-	DWORD dwRenderEnd = GetTickCount();
-	std::cout<<" the PBO is completed"<<std::endl;
+//	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uiPBO);
+//	glBindTexture(GL_TEXTURE_2D, uiRenderedTexture);
+//	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ciWidth, ciHeight, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+//
+//	DWORD dwRenderEnd = GetTickCount();
+//	std::cout<<" the PBO is completed"<<std::endl;
 #ifdef __COMM__
 	std::cout<<" the comm-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
 #endif
 #ifdef __OPT__
-	std::cout<<" the opt-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
+	//std::cout<<" the opt-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
 #endif
 
 #ifdef __NREALTIME__
@@ -651,18 +662,18 @@ void main(int argc, char** argv)
 		1.0f,  1.0f, 
 	};
 
-	GLuint VertexArrayID;
-	glGenVertexArrays(1, &VertexArrayID);
-	glBindVertexArray(VertexArrayID);
+	GLuint guVertArrayID;
+	glGenVertexArrays(1, &guVertArrayID);
+	glBindVertexArray(guVertArrayID);
 
-	GLuint quad_vertexbuffer;
-	glGenBuffers(1, &quad_vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+	GLuint guQuadVert;
+	glGenBuffers(1, &guQuadVert);
+	glBindBuffer(GL_ARRAY_BUFFER, guQuadVert);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
 
-	GLuint uv;
-	glGenBuffers(1, &uv);
-	glBindBuffer(GL_ARRAY_BUFFER, uv);
+	GLuint guUV;
+	glGenBuffers(1, &guUV);
+	glBindBuffer(GL_ARRAY_BUFFER, guUV);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(UV), UV, GL_STATIC_DRAW);
 	GLuint secondProgram = LoadShaders("secondVert.vs", "secondFrag.fs");
 	GLuint texID = glGetUniformLocation(secondProgram, "renderedTexture");
@@ -670,6 +681,36 @@ void main(int argc, char** argv)
 
 	do 
 	{
+		static double tmp = 0;
+		double dXpos, dYpos;
+		glfwGetCursorPos(window, &dYpos, &dXpos);
+		/*dXpos = tmp;
+		dYpos = 0;
+		tmp += 100;*/
+		
+		dYpos = -1*dYpos;
+
+		std::cout<<dXpos<<" "<<dYpos<<std::endl;
+
+		cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dXpos, &uiStatus);
+		clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);
+		cl_mem yposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dYpos, &uiStatus);
+		clSetKernelArg(ckRayTraceKernel, 8, sizeof(cl_mem), &yposMem);
+
+#ifdef __REALTIME__
+		glFinish();
+		clEnqueueAcquireGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+		uiStatus = clEnqueueNDRangeKernel(clQueue, ckRayTraceKernel, 2, NULL, &stGlobalSize[0], &stLocalSize[0], 0, 0, 0);
+		clFinish(clQueue);
+		clEnqueueReleaseGLObjects(clQueue, 1, &clmPBOMem, 0, NULL, NULL);
+		checkErr(uiStatus, "fail to excute kernel");
+		clFinish(clQueue);
+#endif
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uiPBO);
+		glBindTexture(GL_TEXTURE_2D, uiRenderedTexture);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ciWidth, ciHeight, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, ciWidth, ciHeight);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -680,7 +721,7 @@ void main(int argc, char** argv)
 		glUniform1i(texID, 0);
 
 		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, guQuadVert);
 		glVertexAttribPointer(
 			0,
 			3,
@@ -691,7 +732,7 @@ void main(int argc, char** argv)
 			);
 
 		glEnableVertexAttribArray(1);
-		glBindBuffer(GL_ARRAY_BUFFER, uv);
+		glBindBuffer(GL_ARRAY_BUFFER, guUV);
 		glVertexAttribPointer(
 			1,
 			2,
@@ -704,9 +745,14 @@ void main(int argc, char** argv)
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+		clReleaseMemObject(xposMem);
+		clReleaseMemObject(yposMem);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-	} while (1);
+	} while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS);
 	
 #endif	
 	
