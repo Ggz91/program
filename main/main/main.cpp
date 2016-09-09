@@ -466,7 +466,6 @@ void main(int argc, char** argv)
 */
 	
 	//使用OpenCL的方法直接绘制PBO
-	DWORD dwRenderBeg = GetTickCount();
 	cl_kernel ckRayTraceKernel = clCreateKernel(clpProgram, "RayTrace", &uiStatus);
 	checkErr(uiStatus, "fail to create kernel");
 
@@ -637,7 +636,7 @@ void main(int argc, char** argv)
 	
 
 #ifdef __REALTIME__ 
-	static const GLfloat g_quad_vertex_buffer_data[] = { 
+	static const GLfloat cfQuadVertBuffer[] = { 
 		-1.0f, -1.0f, 0.0f,
 		1.0f, -1.0f, 0.0f,
 		-1.0f,  1.0f, 0.0f,
@@ -645,14 +644,7 @@ void main(int argc, char** argv)
 		1.0f, -1.0f, 0.0f,
 		1.0f,  1.0f, 0.0f,
 	};
-	/*static const GLfloat g_quad_vertex_buffer_data[] = { 
-		-0.5f, -0.5f, 0.0f,
-		0.5f, -0.5f, 0.0f,
-		-0.5f,  0.5f, 0.0f,
-		-0.5f,  0.5f, 0.0f,
-		0.5f, -0.5f, 0.0f,
-		0.5f,  0.5f, 0.0f,
-	};*/
+	
 	static const GLfloat UV[] = { 
 		0.0f, 0.0f, 
 		1.0f, 0.0f, 
@@ -669,7 +661,7 @@ void main(int argc, char** argv)
 	GLuint guQuadVert;
 	glGenBuffers(1, &guQuadVert);
 	glBindBuffer(GL_ARRAY_BUFFER, guQuadVert);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(cfQuadVertBuffer), cfQuadVertBuffer, GL_STATIC_DRAW);
 
 	GLuint guUV;
 	glGenBuffers(1, &guUV);
@@ -677,10 +669,11 @@ void main(int argc, char** argv)
 	glBufferData(GL_ARRAY_BUFFER, sizeof(UV), UV, GL_STATIC_DRAW);
 	GLuint secondProgram = LoadShaders("secondVert.vs", "secondFrag.fs");
 	GLuint texID = glGetUniformLocation(secondProgram, "renderedTexture");
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClearColor(153.0f, 51.0f, 250.0f, 0.0f);
 
 	do 
 	{
+		DWORD dwRenderBeg = GetTickCount();
 		static double tmp = 0;
 		double dXpos, dYpos;
 		glfwGetCursorPos(window, &dYpos, &dXpos);
@@ -690,7 +683,7 @@ void main(int argc, char** argv)
 		
 		dYpos = -1*dYpos;
 
-		std::cout<<dXpos<<" "<<dYpos<<std::endl;
+		//std::cout<<dXpos<<" "<<dYpos<<std::endl;
 
 		cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dXpos, &uiStatus);
 		clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);
@@ -752,6 +745,9 @@ void main(int argc, char** argv)
 		clReleaseMemObject(yposMem);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+
+		DWORD dwRenderEnd = GetTickCount();
+		std::cout<<"the render time is "<< dwRenderEnd - dwRenderBeg<<std::endl;
 	} while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS);
 	
 #endif	

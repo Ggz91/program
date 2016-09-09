@@ -11,7 +11,7 @@
 
 #define T0 20		//模拟退火算法中的初始温度
 #define NMAX 25		//模拟退火算法中一次降温的采样数
-#define MAXITER	1
+#define MAXITER	5
 #define DEC_SPEED 0.5
 
 const float3 cf3LightPos = (float3)(5, 0, 0);
@@ -337,6 +337,7 @@ struct TriangleInfo
 
 bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,float* tMin, float* tMax, float3* interPos)
 {
+
 	float a1 = f3LightDir.x;
 	float a2 = f3LightDir.y;
 	float a3 = f3LightDir.z;
@@ -353,16 +354,18 @@ bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,floa
 	float detA1 = c1*b2*d3 + b1*d2*c3 + d1*c2*b3 - (d1*b2*c3 + b1*c2*d3 + c1*d2*b3);
 	float detA2 = c1*d2*a3 + d1*a2*c3 + a1*c2*d3 - (a1*d2*c3 + d1*c2*a3 + c1*a2*d3);
 	float detA3 = d1*b2*a3 + b1*a2*d3 + a1*d2*b3 - (a1*b2*d3 + b1*d2*a3 + d1*a2*b3);*/
-
 	float detA = a1*(b2*c3 - b3*c2) - b1*(a2*c3 - a3*c2) + c1*(a2*b3 - a3*b2);
 	float detA1 = d1*(b2*c3 - b3*c2) - b1*(d2*c3 - d3*c2) + c1*(d2*b3 - d3*b2);
 	float detA2 = a1*(d2*c3 - d3*c2) - d1*(a2*c3 - a3*c2) + c1*(a2*d3 - a3*d2);
 	float detA3 = a1*(b2*d3 - b3*d2) - b1*(a2*d3 - a3*d2) + d1*(a2*b3 - a3*b2);
-
+	//printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f", a1, a2, a3, b1, b2, b3, c1, c2, c3, d1, d2, d3);
+	//printf("%f %f %f %f", detA, detA1, detA2, detA3);
 
 	float t = detA1 / detA; 
 	float b = detA2 / detA;
 	float c = detA3 / detA;
+
+	
 
 	if( ( t<=(*tMin) ) || ( t>=(*tMax) )) return false;
 	if( ( c>1 ) || ( c<0 )) return false;
@@ -371,7 +374,9 @@ bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,floa
 	interPos->x = f3EyePos.x + t * f3LightDir.x;
 	interPos->y = f3EyePos.y + t * f3LightDir.y;
 	interPos->z = f3EyePos.z + t * f3LightDir.z;
-
+	
+	
+	
 	return true;
 }	
 
@@ -406,11 +411,11 @@ uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3Lig
 			float fDistPosToEye = distance(f3InterPos, f3EyePos);
 
 
-			//if( 0 == fDistPosToEye ) 
-			//{	
-			//	iInBox = 0;
-			//	break;
-			//}
+			if( 0 == fDistPosToEye ) 
+			{	
+				iInBox = 0;
+				break;
+			}
 			if( fDistPosToEye >= *fDst)	break;
 
 			*fDst = fDistPosToEye;
@@ -437,9 +442,9 @@ uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3Lig
 			
 			
 			*flag = 1;
+
 		}
 	}
-	//printf("%d", *flag);
 
 	if( 1 == *flag)
 	{
@@ -447,9 +452,10 @@ uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3Lig
 		*f3NextDir = R;
 		*cosAl = cosAlpha; 
 	}
+
+	uc3Res = (uchar3)(f3Res.x, f3Res.y, f3Res.z);
 	
 	//uc3Res = (uchar3)(255, 255, 255);
-	uc3Res = (uchar3)(f3Res.x, f3Res.y, f3Res.z);
 	//printf("%d %d %d", uc3Res.x, uc3Res.y, uc3Res.z);
 	return uc3Res;
 	
@@ -508,6 +514,7 @@ bool IsEmpty(struct Stack* sSt)
 
 uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDir, struct SplitNode* spSplitNodeArray, float* fDst, struct TriangleInfo* TriangleInfoArray, struct TriangleCandidateSplitPlane* input, float* tMin, float* tMax, int* length, float3* f3NextPos, float3* f3NextDir, float* cosAlpha, int* flag)
 {
+	
 	//背景颜色
 	uchar3 f3Res = (uchar3)(8, 46, 84);
 	////判断是不是最终的叶子节点
@@ -702,6 +709,7 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 
 		if( ( snCurNode.leftChild == -1 ) && ( snCurNode.rightChild == -1 ))
 		{
+			
 			uchar3 uc3Tmp = RayCrossTraingleTest( snCurNode, f3EyePos, f3LightDir, fDst, TriangleInfoArray, input, tMin, tMax, f3NextPos, f3NextDir, cosAlpha, flag);
 			if( *fDst < fLastDst)
 			{
@@ -891,10 +899,17 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	float3 f3Pos = f3EyePos;
 	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
 
-	uchar3 f3Res;
+
+
+	uchar3 f3Res = (uchar3)(153, 51, 250);;
 	int flag = 0;
 	for(int i = 0; i<MAXITER; i++)
 	{
+		
+		if(isnan(f3LightDir.x) && i == 0)
+		{
+			printf("nan");
+		}
 		flag = 0;
 		float3 f3NextPos;
 		float3 f3NextDir;
@@ -903,8 +918,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 		float cosAlpha;
 		uc3TmpColor = RayCrossAABBTest(spSplitNodeArray[0], f3Pos, f3LightDir, spSplitNodeArray, &fDst, TriangleInfoArray, input, &tMin, &tMax, length, &f3NextPos, &f3NextDir, &cosAlpha, &flag);
 		
-		/*printf("%d %d %d", uc3TmpColor.x, uc3TmpColor.y, uc3TmpColor.z);*/
-		if( 0 == flag) break; //表示没有找打送相交的三角面片
+		if( 0 == flag)	break;//表示没有找到相交的三角面片
 		if( 0 == i)
 		{
 			f3Res = uc3TmpColor;
@@ -916,7 +930,12 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 			f3Res = f3Res + uc3TmpColor*50.0*cosAlpha / (fDist*fDist);
 		}
 		f3Pos = f3NextPos;
-		f3LightDir = f3NextPos;
+		f3LightDir = f3NextDir;
+		/*if( i > 0 && ( flag != 0 ))
+		{
+			printf("%f %f %f", f3Pos.x, f3Pos.y, f3Pos.z);
+		}
+*/
 
 	}
 
@@ -924,10 +943,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	pcResPB[(i*(*iWinWidth)+idx)*4 + 1] = f3Res.y;
 	pcResPB[(i*(*iWinWidth)+idx)*4 + 2] = f3Res.z;
 	pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 0;
-	/*pcResPB[i*(*iWinWidth)+idx].x = f3Res.x;
-	pcResPB[i*(*iWinWidth)+idx].y = f3Res.y;
-	pcResPB[i*(*iWinWidth)+idx].z = f3Res.z;
-	pcResPB[i*(*iWinWidth)+idx].w = 0;*/
+	
 	
 	
 #endif
