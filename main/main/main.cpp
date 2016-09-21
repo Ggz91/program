@@ -696,14 +696,10 @@ void main(int argc, char** argv)
 	{
 		DWORD dwRenderBeg = GetTickCount();
 		//double dXpos, dYpos;
-		glfwGetCursorPos(window, dYpos, dXpos);
+		glfwGetCursorPos(window, dXpos, dYpos);
 		//glfwGetCursorPos(window, &dYpos, &dXpos);
 		
-		
-		*dYpos = -1*(*dYpos);
-
-		//dYpos = -1*dYpos;
-
+		*dXpos = -1*(*dXpos);
 		//cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dXpos, &uiStatus);
 		//checkErr(uiStatus, "fail to create buffer!");
 		//clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);

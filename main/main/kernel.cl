@@ -27,9 +27,9 @@ const double dW = 1;
 
 
 //公用参数设置
-const float3 cf3LightPos = (float3)(-7, 0, 0);
+const float3 cf3LightPos = (float3)(0, 0, -7);
 const float  cfMouseSpeed = 0.01f;
-
+float3 f3EyePos = (float3)(0, 2, -7.0);
 struct TriangleCandidateSplitPlane
 {
 	int triangleID;
@@ -540,27 +540,34 @@ uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3Lig
 
 			float3 f3Normal = (float3)(TriangleInfoArray[idx].vecNormal.x, TriangleInfoArray[idx].vecNormal.y, TriangleInfoArray[idx].vecNormal.z);
 
-			/*if(dot(f3Normal, f3LightDir) >0) 
+			//printf(" %f %f %f",f3Normal.x, f3Normal.y, f3Normal.z);
+
+			if(dot(f3Normal, f3LightDir) > 0) 
+			{
+
+				float3 f3LightDirWS = f3InterPos - cf3LightPos;
+
+				float3 n = normalize( f3Normal );
+				//n = (-1) * n;
+				float3 l = normalize( f3LightDirWS);
+				float fTmp = dot(n,l);
+				float cosTheta = clamp( fTmp, (float) 0.0, (float) 1.0);
+
+				float3 E = normalize( f3LightDir);
+				R = reflect( l, n);
+				fTmp= dot(E, R);
+				cosAlpha = clamp(fTmp, (float) 0.0, (float) 1.0);
+				f3Res = f3MaterialAmbientColor +
+						f3MaterialDiffuseColor * f3LightColor * fLightPower * cosTheta / (fDistPosToLight * fDistPosToLight) + 
+						f3MaterialSpecularColor * f3LightColor * fLightPower * pow(cosAlpha, 5) / (fDistPosToEye * fDistPosToEye);
+				
+			}
+			else
 			{
 				f3Res = (float3) (0, 0, 0);
-				break;
-			}*/
-
-			float3 f3LightDirWS = f3InterPos - cf3LightPos;
-
-			float3 n = normalize( f3Normal );
-			//n = (-1) * n;
-			float3 l = normalize( f3LightDirWS);
-			float fTmp = dot(n,l);
-			float cosTheta = clamp( fTmp, (float) 0.0, (float) 1.0);
-
-			float3 E = normalize( f3LightDir);
-			R = reflect( l, n);
-			fTmp= dot(E, R);
-			cosAlpha = clamp(fTmp, (float) 0.0, (float) 1.0);
-			f3Res = f3MaterialAmbientColor +
-					f3MaterialDiffuseColor * f3LightColor * fLightPower * cosTheta / (fDistPosToLight * fDistPosToLight) + 
-					f3MaterialSpecularColor * f3LightColor * fLightPower * pow(cosAlpha, 5) / (fDistPosToEye * fDistPosToEye);
+				
+			}
+		
 
 
 			
@@ -940,7 +947,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	float tMin = 0;
 	float tMax = 0;
 	
-	float3 f3EyePos = (float3)(0, 0, -5.0);
+	
 	int idx = get_global_id(0);
 	
 #ifdef __ONEDIMCAL__
@@ -976,12 +983,13 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;*/
 
 	int i = get_global_id(1);
-	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, -4.5);
-	float fR = (f3EyePos - f3PixPos).z;
-	float fDx = (idx - (*iWinWidth)/2.0)/256.0;
-	float fDy = (i - (*iWinHeight)/2.0)/256.0;
-	float tanAlpha = (*xPos- (*iWinWidth)/2.0)/256* cfMouseSpeed;
-	float tanBeta = (*yPos - (*iWinHeight)/2.0)/256* cfMouseSpeed;
+	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0 + *xPos)/256.0 , (i - (*iWinHeight)/2.0 + *yPos)/256.0, -4.5);
+	float fR =  fabs((f3PixPos - f3EyePos).z);
+	//f3EyePos = (float3) ( *xPos/256, *yPos/256, f3EyePos.z);
+	//float fDx = (idx - (*iWinWidth)/2.0) / 256.0;
+	//float fDy = (i - (*iWinHeight)/2.0) / 256.0;
+	float tanAlpha = (*yPos - (*iWinHeight)/2.0) / 256 * cfMouseSpeed ;
+	float tanBeta = (*xPos - (*iWinWidth)/2.0) / 256 * cfMouseSpeed ;
 	float sinAlpha = tanAlpha / sqrt(pown(tanAlpha,2) + 1);
 	float cosAlpha = 1 / sqrt(pown(tanAlpha,2) + 1);
 	float sinBeta = tanBeta / sqrt(pown(tanBeta, 2) + 1);
@@ -1011,7 +1019,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	
 	m4RotaY.l0 = (float4)(cosBeta, 0, sinBeta, 0);
 	m4RotaY.l1 = (float4)(0, 1, 0, 0);
-	m4RotaY.l2 = (float4)(0, -1*sinBeta, cosBeta, 0);
+	m4RotaY.l2 = (float4)(-1*sinBeta, 0, cosBeta, 0);
 	m4RotaY.l3 = (float4)(0, 0, 0, 1);
 
 	f4PixPos = mul(m4Trans2, mul(m4RotaY, mul(m4RotaX, mul(m4Trans1, f4PixPos))));
@@ -1022,7 +1030,6 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	//printf("%f %f %f", f3PixPos.x, f3PixPos.y, f3PixPos.z);
 	float3 f3Pos = f3EyePos;
 	float3 f3LightDir = normalize(f3PixPos - f3EyePos);
-
 
 
 	uchar3 f3Res = (uchar3)(8, 46, 84);
