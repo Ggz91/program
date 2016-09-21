@@ -1,4 +1,4 @@
-﻿生成启动时间为 9/21/2016 3:56:34 PM。
+﻿生成启动时间为 9/21/2016 9:02:26 PM。
      1>项目“F:\learning\program\main\main\main.vcxproj”在节点 2 上(build 个目标)。
      1>InitializeBuildStatus:
          正在创建“Release\main.unsuccessfulbuild”，因为已指定“AlwaysCreate”。
@@ -7,15 +7,15 @@
          main.cpp
      1>C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\include\windef.h(126): warning C4005: “APIENTRY”: 宏重定义
                  F:\learning\OpenGLLib\include\GLFW/glfw3.h(98) : 参见“APIENTRY”的前一个定义
-     1>f:\learning\program\main\main\custom.h(312): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
-     1>f:\learning\program\main\main\custom.h(313): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
+     1>f:\learning\program\main\main\custom.h(321): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
+     1>f:\learning\program\main\main\custom.h(322): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
      1>main.cpp(140): warning C4244: “=”: 从“std::streamoff”转换到“size_t”，可能丢失数据
      1>main.cpp(164): warning C4996: 'clCreateCommandQueue': 被声明为已否决
                  C:\Program Files (x86)\Intel\OpenCL SDK\include\cl/cl.h(1359) : 参见“clCreateCommandQueue”的声明
-     1>main.cpp(267): warning C4018: “<”: 有符号/无符号不匹配
-     1>main.cpp(269): warning C4244: “=”: 从“double”转换到“float”，可能丢失数据
-     1>main.cpp(281): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
-     1>main.cpp(282): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
+     1>main.cpp(274): warning C4018: “<”: 有符号/无符号不匹配
+     1>main.cpp(276): warning C4244: “=”: 从“double”转换到“float”，可能丢失数据
+     1>main.cpp(288): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
+     1>main.cpp(289): warning C4244: “初始化”: 从“double”转换到“int”，可能丢失数据
        Link:
          F:\software\VS2010\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"F:\learning\program\main\Release\main.exe" /INCREMENTAL:NO /NOLOGO /LIBPATH:"C:\Program Files (x86)\Intel\OpenCL SDK\lib\x86" OpenCL.lib glew32.lib OpenGL32.lib glfw3.lib OpenCL.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NODEFAULTLIB:LIBCMT.LIB /MANIFEST /ManifestFile:"Release\main.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"F:\learning\program\main\Release\main.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"F:\learning\program\main\Release\main.lib" /MACHINE:X86 Release\controls.obj
          Release\objloader.obj
@@ -42,4 +42,4 @@
 
 生成成功。
 
-已用时间 00:00:02.80
+已用时间 00:00:03.51

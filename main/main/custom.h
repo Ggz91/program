@@ -14,15 +14,24 @@
 //#define MAXITER	2
 //#define DEC_SPEED 0.5
 
+//测试用的开关选项
 
+//使用一位的workgroup或者二维的workgroup
 //#define __ONEDIMCAL__
 #define __TWODIMCAL__
 
+//使用优化算法或者不使用优化算法
 #define __OPT__
 //#define __COMM__
 
+//使用实时渲染（捕捉鼠标移动）或者渲染单帧图像
 #define __REALTIME__
 //#define __NREALTIME__
+
+//使用模拟退火算法构建树或者使用粒子群算法构建树
+#define __SAA
+//#define __PSO
+
 typedef enum 
 {
 	PRINT_INFO = 0xf00000,

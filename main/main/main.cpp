@@ -29,8 +29,8 @@ using namespace glm;
 
 
 
-int ciWidth= 1024;
-int ciHeight = 768;
+const int ciWidth= 1024;
+const int ciHeight = 768;
 
 const char* ccpFileName = "bunny_new2.obj";
 //const char* ccpFileName = "suzanne.obj";
@@ -222,7 +222,14 @@ void main(int argc, char** argv)
 
 	clFinish(clQueue);
 	//按照splitNode的结构来分割inputMem，并生成一个splitNode的数组
+#ifdef __SAA
 	cl_kernel kernelSAHSplit = clCreateKernel(clpProgram, "SAHSplit", 0);
+#endif // __
+
+#ifdef __PSO
+	cl_kernel kernelSAHSplit = clCreateKernel(clpProgram, "PSOSAHSplit", 0);
+#endif
+
 	checkErr(uiStatus, "clCreateKernel of kernelSAHSplit error");
 
 	clSetKernelArg(kernelSAHSplit, 0, sizeof(cl_mem), &inputMem);
@@ -469,9 +476,9 @@ void main(int argc, char** argv)
 	cl_kernel ckRayTraceKernel = clCreateKernel(clpProgram, "RayTrace", &uiStatus);
 	checkErr(uiStatus, "fail to create kernel");
 
-	cl_mem cmWinWidthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &ciWidth, &uiStatus);
+	cl_mem cmWinWidthMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int),(void*) &ciWidth, &uiStatus);
 	checkErr(uiStatus, "fail to create width buffer");
-	cl_mem cmWinHeightMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int), &ciHeight, &uiStatus);
+	cl_mem cmWinHeightMem = clCreateBuffer(clContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int),(void*) &ciHeight, &uiStatus);
 	checkErr(uiStatus, "fail to create height buffer");
 	
 #ifdef __OPT__

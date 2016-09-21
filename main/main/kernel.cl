@@ -9,13 +9,27 @@
 #define __REALTIME__
 //#define __NREALTIME__
 
-#define T0 20		//模拟退火算法中的初始温度
-#define NMAX 20		//模拟退火算法中一次降温的采样数
-#define MAXITER	2
-#define DEC_SPEED 0.1
+//模拟退火算法的参数设置
+const int T0 = 20;		//模拟退火算法中的初始温度
+const int NMAX = 20;		//模拟退火算法中一次降温的采样数
+const int MAXITER = 2;
+const double DEC_SPEED = 0.1;
 
+//粒子群算法的参数设置
+#define ciParticleNum  10	//粒子数
+const int ciMax = 10;			//采样次数
+
+double dC1 = 2;					//权重c1
+double dC2 = 2;					//权重c2
+
+const double cdVmax = 5;				//单次位移最大值
+const double dW = 1;
+
+
+//公用参数设置
 const float3 cf3LightPos = (float3)(-7, 0, 0);
-const float  cfMouseSpeed = 0.1f;
+const float  cfMouseSpeed = 0.01f;
+
 struct TriangleCandidateSplitPlane
 {
 	int triangleID;
@@ -153,6 +167,104 @@ __kernel void BitonicSort (__global struct TriangleCandidateSplitPlane* input,
     }  
 }  
 
+__kernel void PSOSAHSplit(__global const struct TriangleCandidateSplitPlane* input,
+						__global struct SplitNode*	splitNodeArray,
+						__global const int* splitNodeArrayBeg,
+						__global const int* splitNodeArrayEnd,
+						__global const int* randPos,
+						__global const int* randPro,
+						__global const int* maxSize
+						)
+{
+	int idx= get_global_id(0) + (*splitNodeArrayBeg);
+	//printf("Beg:%d\t\tEnd:%d\t\tID:%d\t\t\nnodeBeg:%d\t\tnodeEnd:%d\t\t\n", *splitNodeArrayBeg, *splitNodeArrayEnd, idx, splitNodeArray[idx].beg, splitNodeArray[idx].end);
+	if((idx>= *splitNodeArrayBeg)&&(idx<= *splitNodeArrayEnd) && (splitNodeArray[idx].end - splitNodeArray[idx].beg > 64) && (splitNodeArray[idx].beg != -1) && (splitNodeArray[idx].end != -1))
+	{
+		splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
+		splitNodeArray[idx].xMin = input[splitNodeArray[idx].beg].xMin;
+		splitNodeArray[idx].yMax = input[splitNodeArray[idx].beg].yMax;
+		splitNodeArray[idx].yMin = input[splitNodeArray[idx].beg].yMin;
+		splitNodeArray[idx].zMax = input[splitNodeArray[idx].beg].zMax;
+		splitNodeArray[idx].zMin = input[splitNodeArray[idx].beg].zMin;
+		UpdateSplitNodeWithAABBInfo(splitNodeArray, idx, input);
+		
+		int iPos = 0;
+		int jPos = 0;
+		int currentPos = randPos[iPos++] % ((splitNodeArray[idx].end) - (splitNodeArray[idx].beg) + 1) + splitNodeArray[idx].beg;
+		float currentSAH = ComputeSAH(currentPos, splitNodeArray, idx, input);
+		
+		
+		//粒子群算法
+		__local int adX[ciParticleNum];
+		__local double adY[ciParticleNum];
+		__local double adV[ciParticleNum];
+		__local double adBest[ciParticleNum];
+		
+		//初始化
+		for( int i = 0; i<ciParticleNum; i++ )
+		{
+			if( iPos >= T0*NMAX ) iPos %= T0*NMAX;
+			
+			adX[i] = randPos[iPos++] % ((splitNodeArray[idx].end) - (splitNodeArray[idx].beg) + 1) + splitNodeArray[idx].beg;
+			adY[i] = ComputeSAH(adX[i], splitNodeArray, idx, input);
+			adBest[i] = adY[i];
+			if( adY[i] < currentSAH ) 
+			{
+				currentSAH = adY[i];
+				currentPos = adX[i];
+			}
+		}		
+
+		for( int i = 0 ; i<ciMax; i++)
+		{
+			for( int j = 0; j<ciParticleNum; j++)
+			{
+				if( iPos >= T0*NMAX ) iPos %= T0*NMAX;
+				adV[j] = dW*adV[j] + dC1*randPro[iPos++]*(adBest[j] - adX[j] ) + dC2*randPro[iPos]*(adBest[j]-adX[j]);
+
+				if( adV[j] > cdVmax ) adV[j] = cdVmax;
+				if( adV[j] < -cdVmax) adV[j] = -cdVmax;
+				adX[j] += adV[j];
+				if( adX[j] > *splitNodeArrayEnd) adX[j] = *splitNodeArrayEnd;
+				if( adX[j] < *splitNodeArrayBeg) adX[j] = *splitNodeArrayBeg;
+
+				adY[i] = ComputeSAH(adX[i], splitNodeArray, idx, input);
+				adBest[i] = (adY[i]<adBest[i]) ? adY[i] : adBest[i];
+				if( adBest[i] != adY[i] ) adX[j] -= adV[j];
+
+
+			}
+
+			for( int i = 0; i<ciParticleNum; i++ )
+			{
+				
+				if( adBest[i] < currentSAH ) 
+				{
+					currentSAH = adBest[i];
+					currentPos = adX[i];
+				}	
+
+			}	
+		}
+
+			
+
+
+		splitNodeArray[idx*2 + 1].beg = splitNodeArray[idx].beg;
+		splitNodeArray[idx*2 + 1].end = currentPos - 1;
+		splitNodeArray[idx*2 + 2].beg = currentPos;
+		splitNodeArray[idx*2 + 2].end = splitNodeArray[idx].end;
+		if((idx*2 + 2) < *maxSize)
+		{
+			splitNodeArray[idx].leftChild = idx*2 + 1;
+			splitNodeArray[idx].rightChild = idx*2 + 2;
+		}
+		
+	}
+	//printf("\n");
+}
+
+
 __kernel void SAHSplit(__global const struct TriangleCandidateSplitPlane* input,
 						__global struct SplitNode*	splitNodeArray,
 						__global const int* splitNodeArrayBeg,
@@ -222,7 +334,6 @@ __kernel void SAHSplit(__global const struct TriangleCandidateSplitPlane* input,
 			splitNodeArray[idx].leftChild = idx*2 + 1;
 			splitNodeArray[idx].rightChild = idx*2 + 2;
 		}
-		
 		
 	}
 	//printf("\n");
@@ -829,7 +940,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	float tMin = 0;
 	float tMax = 0;
 	
-	float3 f3EyePos = (float3)(0, 0, -7.0);
+	float3 f3EyePos = (float3)(0, 0, -5.0);
 	int idx = get_global_id(0);
 	
 #ifdef __ONEDIMCAL__
