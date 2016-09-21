@@ -46,7 +46,7 @@ void main(int argc, char** argv)
 		exit(0);
 	}
 
-	glfwWindowHint(GLFW_SAMPLES, 4);
+	//glfwWindowHint(GLFW_SAMPLES, 4);
 #ifdef __REALTIME__
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -671,24 +671,39 @@ void main(int argc, char** argv)
 	GLuint texID = glGetUniformLocation(secondProgram, "renderedTexture");
 	glClearColor(153.0f, 51.0f, 250.0f, 0.0f);
 
+
+	cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizeof(double), NULL, &uiStatus);
+	checkErr(uiStatus, "fail to create buffer!");
+	clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);
+	cl_mem yposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizeof(double), NULL, &uiStatus);
+	checkErr(uiStatus, "fail to create buffer!");
+	clSetKernelArg(ckRayTraceKernel, 8, sizeof(cl_mem), &yposMem);
+
+	double  *dXpos = (double* ) clEnqueueMapBuffer(clQueue, xposMem, CL_FALSE, CL_MAP_WRITE, 0, sizeof(double), 0, NULL, NULL, &uiStatus);
+	checkErr(uiStatus, "fail to map buffer!");
+	double  *dYpos = (double* ) clEnqueueMapBuffer(clQueue, yposMem, CL_FALSE, CL_MAP_WRITE, 0, sizeof(double), 0, NULL, NULL, &uiStatus);
+	glfwGetCursorPos(window, dYpos, dXpos);
+	
+
 	do 
 	{
 		DWORD dwRenderBeg = GetTickCount();
-		static double tmp = 0;
-		double dXpos, dYpos;
-		glfwGetCursorPos(window, &dYpos, &dXpos);
-		/*dXpos = tmp;
-		dYpos = 0;
-		tmp += 100;*/
+		//double dXpos, dYpos;
+		glfwGetCursorPos(window, dYpos, dXpos);
+		//glfwGetCursorPos(window, &dYpos, &dXpos);
 		
-		dYpos = -1*dYpos;
+		
+		*dYpos = -1*(*dYpos);
 
-		//std::cout<<dXpos<<" "<<dYpos<<std::endl;
+		//dYpos = -1*dYpos;
 
-		cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dXpos, &uiStatus);
-		clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);
-		cl_mem yposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dYpos, &uiStatus);
-		clSetKernelArg(ckRayTraceKernel, 8, sizeof(cl_mem), &yposMem);
+		//cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dXpos, &uiStatus);
+		//checkErr(uiStatus, "fail to create buffer!");
+		//clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);
+		//cl_mem yposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dYpos, &uiStatus);
+		//checkErr(uiStatus, "fail to create buffer!");
+		//clSetKernelArg(ckRayTraceKernel, 8, sizeof(cl_mem), &yposMem);
+		
 
 #ifdef __REALTIME__
 		glFinish();
@@ -741,8 +756,7 @@ void main(int argc, char** argv)
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-		clReleaseMemObject(xposMem);
-		clReleaseMemObject(yposMem);
+		
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
@@ -754,6 +768,8 @@ void main(int argc, char** argv)
 	
 
 	//ÊÍ·Å×ÊÔ´
+	clReleaseMemObject(xposMem);
+	clReleaseMemObject(yposMem);
 	clReleaseProgram(clpProgram);
 	clReleaseMemObject(inputMem);
 #ifdef __OPT__

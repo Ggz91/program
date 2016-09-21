@@ -10,12 +10,12 @@
 //#define __NREALTIME__
 
 #define T0 20		//模拟退火算法中的初始温度
-#define NMAX 25		//模拟退火算法中一次降温的采样数
-#define MAXITER	5
-#define DEC_SPEED 0.5
+#define NMAX 20		//模拟退火算法中一次降温的采样数
+#define MAXITER	2
+#define DEC_SPEED 0.1
 
-const float3 cf3LightPos = (float3)(5, 0, 0);
-const float  cfMouseSpeed = 0.01f;
+const float3 cf3LightPos = (float3)(-7, 0, 0);
+const float  cfMouseSpeed = 0.1f;
 struct TriangleCandidateSplitPlane
 {
 	int triangleID;
@@ -337,6 +337,8 @@ struct TriangleInfo
 
 bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,float* tMin, float* tMax, float3* interPos)
 {
+	float3 f3Nor = (float3) (sTri.vecNormal.x, sTri.vecNormal.y, sTri.vecNormal.z);
+	if(dot( f3Nor, f3LightDir)  < 0) return false;
 
 	float a1 = f3LightDir.x;
 	float a2 = f3LightDir.y;
@@ -360,6 +362,11 @@ bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,floa
 	float detA3 = a1*(b2*d3 - b3*d2) - b1*(a2*d3 - a3*d2) + d1*(a2*b3 - a3*b2);
 	//printf("%f %f %f %f %f %f %f %f %f %f %f %f %f %f", a1, a2, a3, b1, b2, b3, c1, c2, c3, d1, d2, d3);
 	//printf("%f %f %f %f", detA, detA1, detA2, detA3);
+
+	if( 0==detA ) 
+	{
+		return false;
+	}
 
 	float t = detA1 / detA; 
 	float b = detA2 / detA;
@@ -421,6 +428,12 @@ uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3Lig
 			*fDst = fDistPosToEye;
 
 			float3 f3Normal = (float3)(TriangleInfoArray[idx].vecNormal.x, TriangleInfoArray[idx].vecNormal.y, TriangleInfoArray[idx].vecNormal.z);
+
+			/*if(dot(f3Normal, f3LightDir) >0) 
+			{
+				f3Res = (float3) (0, 0, 0);
+				break;
+			}*/
 
 			float3 f3LightDirWS = f3InterPos - cf3LightPos;
 
@@ -816,7 +829,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	float tMin = 0;
 	float tMax = 0;
 	
-	float3 f3EyePos = (float3)(0, 0, -5.0);
+	float3 f3EyePos = (float3)(0, 0, -7.0);
 	int idx = get_global_id(0);
 	
 #ifdef __ONEDIMCAL__
@@ -852,8 +865,8 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	pcResPB[(i*(*iWinWidth)+idx)*3 + 2] = f3Res.z;*/
 
 	int i = get_global_id(1);
-	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, -3.5);
-	float fR = 1.5;
+	float3 f3PixPos = (float3)((idx - (*iWinWidth)/2.0)/256.0, (i - (*iWinHeight)/2.0)/256.0, -4.5);
+	float fR = (f3EyePos - f3PixPos).z;
 	float fDx = (idx - (*iWinWidth)/2.0)/256.0;
 	float fDy = (i - (*iWinHeight)/2.0)/256.0;
 	float tanAlpha = (*xPos- (*iWinWidth)/2.0)/256* cfMouseSpeed;
@@ -901,7 +914,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 
 
 
-	uchar3 f3Res = (uchar3)(153, 51, 250);;
+	uchar3 f3Res = (uchar3)(8, 46, 84);
 	int flag = 0;
 	for(int i = 0; i<MAXITER; i++)
 	{
@@ -936,6 +949,10 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 			printf("%f %f %f", f3Pos.x, f3Pos.y, f3Pos.z);
 		}
 */
+		/*if( !isnan(f3Pos.x))
+		{
+			printf("here, %f %f %f", f3Pos.x, f3Pos.y, f3Pos.z);
+		}*/
 
 	}
 

@@ -9,8 +9,8 @@
 
  //KD-Tree的最大深度
 #define MAXDEPTH 20
-#define T0 20	//模拟退火算法中的初始温度
-#define NMAX 25		//模拟退火算法中一次降温的采样数
+#define T0 100	//模拟退火算法中的初始温度
+#define NMAX 100	//模拟退火算法中一次降温的采样数
 //#define MAXITER	2
 //#define DEC_SPEED 0.5
 

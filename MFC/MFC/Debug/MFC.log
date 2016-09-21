@@ -1,0 +1,39 @@
+﻿生成启动时间为 9/20/2016 4:46:33 PM。
+     1>项目“F:\learning\program\MFC\MFC\MFC.vcxproj”在节点 2 上(build 个目标)。
+     1>InitializeBuildStatus:
+         正在对“Debug\MFC.unsuccessfulbuild”执行 Touch 任务。
+       ClCompile:
+         所有输出均为最新。
+         所有输出均为最新。
+       ResourceCompile:
+         所有输出均为最新。
+       ManifestResourceCompile:
+         所有输出均为最新。
+       Link:
+         F:\software\VS2010\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"F:\learning\program\MFC\Debug\MFC.exe" /INCREMENTAL /NOLOGO /LIBPATH:"C:\Program Files (x86)\Intel\OpenCL SDK\lib\x86" OpenCL.lib Opengl32.lib /MANIFEST /ManifestFile:"Debug\MFC.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"F:\learning\program\MFC\Debug\MFC.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /ENTRY:"wWinMainCRTStartup" /DYNAMICBASE /NXCOMPAT /IMPLIB:"F:\learning\program\MFC\Debug\MFC.lib" /MACHINE:X86 Debug\MFC.res
+         Debug\MFC.exe.embed.manifest.res
+         Debug\CommonAlgoDlg.obj
+         Debug\MFC.obj
+         Debug\MFCDlg.obj
+         Debug\SimulatedAnnealDlg.obj
+         Debug\stdafx.obj
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /out:"Debug\MFC.exe.embed.manifest" /manifest Debug\MFC.exe.intermediate.manifest F:\software\VS2010\VC\Include\Manifest\dpiaware.manifest
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\rc.exe /nologo /fo"Debug\MFC.exe.embed.manifest.res" Debug\MFC_manifest.rc 
+       LinkEmbedManifest:
+         F:\software\VS2010\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"F:\learning\program\MFC\Debug\MFC.exe" /INCREMENTAL /NOLOGO /LIBPATH:"C:\Program Files (x86)\Intel\OpenCL SDK\lib\x86" OpenCL.lib Opengl32.lib /MANIFEST /ManifestFile:"Debug\MFC.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"F:\learning\program\MFC\Debug\MFC.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /ENTRY:"wWinMainCRTStartup" /DYNAMICBASE /NXCOMPAT /IMPLIB:"F:\learning\program\MFC\Debug\MFC.lib" /MACHINE:X86 Debug\MFC.res
+         Debug\MFC.exe.embed.manifest.res
+         Debug\CommonAlgoDlg.obj
+         Debug\MFC.obj
+         Debug\MFCDlg.obj
+         Debug\SimulatedAnnealDlg.obj
+         Debug\stdafx.obj
+         MFC.vcxproj -> F:\learning\program\MFC\Debug\MFC.exe
+       FinalizeBuildStatus:
+         正在删除文件“Debug\MFC.unsuccessfulbuild”。
+         正在对“Debug\MFC.lastbuildstate”执行 Touch 任务。
+     1>已完成生成项目“F:\learning\program\MFC\MFC\MFC.vcxproj”(build 个目标)的操作。
+
+生成成功。
+
+已用时间 00:00:05.34
