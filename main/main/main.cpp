@@ -146,7 +146,7 @@ void main(int argc, char** argv)
 
 	cl_program clpProgram = clCreateProgramWithSource(clContext, 1,	&ccSource, &stFileLen, &uiStatus);
 	checkErr(uiStatus, "fail to create program");
-	const char ccOptions[] ="-cl-std=CL1.1 ";//-DT0  -DNMAX -DDEC_SPEED -DMAXITER -w ";
+	const char ccOptions[] ="-cl-std=CL1.2 ";//-DT0  -DNMAX -DDEC_SPEED -DMAXITER -w ";
 	uiStatus = clBuildProgram(clpProgram, 1, &svDeviceIDs[0], ccOptions, 0, 0);
 	if ( CL_SUCCESS != uiStatus )
 	{
@@ -686,10 +686,10 @@ void main(int argc, char** argv)
 	checkErr(uiStatus, "fail to create buffer!");
 	clSetKernelArg(ckRayTraceKernel, 8, sizeof(cl_mem), &yposMem);
 
-	double  *dXpos = (double* ) clEnqueueMapBuffer(clQueue, xposMem, CL_FALSE, CL_MAP_WRITE, 0, sizeof(double), 0, NULL, NULL, &uiStatus);
+	double *dXpos = (double* ) clEnqueueMapBuffer(clQueue, xposMem, CL_FALSE, CL_MAP_WRITE, 0, sizeof(double), 0, NULL, NULL, &uiStatus);
 	checkErr(uiStatus, "fail to map buffer!");
-	double  *dYpos = (double* ) clEnqueueMapBuffer(clQueue, yposMem, CL_FALSE, CL_MAP_WRITE, 0, sizeof(double), 0, NULL, NULL, &uiStatus);
-	glfwGetCursorPos(window, dYpos, dXpos);
+	double *dYpos = (double* ) clEnqueueMapBuffer(clQueue, yposMem, CL_FALSE, CL_MAP_WRITE, 0, sizeof(double), 0, NULL, NULL, &uiStatus);
+	glfwGetCursorPos(window,(double*) dYpos,(double*) dXpos);
 	
 
 	do 
@@ -697,9 +697,8 @@ void main(int argc, char** argv)
 		DWORD dwRenderBeg = GetTickCount();
 		//double dXpos, dYpos;
 		glfwGetCursorPos(window, dXpos, dYpos);
+		*dYpos = -1*(*dYpos);
 		//glfwGetCursorPos(window, &dYpos, &dXpos);
-		
-		*dXpos = -1*(*dXpos);
 		//cl_mem xposMem = clCreateBuffer(clContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double), &dXpos, &uiStatus);
 		//checkErr(uiStatus, "fail to create buffer!");
 		//clSetKernelArg(ckRayTraceKernel, 7, sizeof(cl_mem), &xposMem);
