@@ -29,8 +29,8 @@
 //#define __NREALTIME__
 
 //使用模拟退火算法构建树或者使用粒子群算法构建树
-#define __SAA
-//#define __PSO
+//#define __SAA
+#define __PSO
 
 typedef enum 
 {
@@ -167,6 +167,7 @@ struct TriangleCandidateSplitPlane
 	float xMax;
 	float yMax;
 	float zMax;
+	
 };
 
 //用来记录一个结点对应三角面片跟AABB等信息的结构体
@@ -298,12 +299,14 @@ struct SplitNode
 	int end;
 	int leftChild;
 	int rightChild;
+	
 	float xMin;
 	float xMax;
 	float yMin;
 	float yMax;
 	float zMin;
 	float zMax;
+
 };
 
 //初始化分割节点

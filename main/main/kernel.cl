@@ -1,4 +1,3 @@
-
 #ifndef __CUSBUG__
 #define __CUSBUG__
 #endif
@@ -29,7 +28,7 @@ __constant float dW = 1;
 //公用参数设置
 
 
-__constant float3 cf3LightPos = (float3)(0, 0, 7);
+__constant float3 cf3LightPos = (float3)(7, 0, 0);
 __constant float  cfMouseSpeed = 0.01f;
 __constant float3 f3EyePos = (float3)(0, 0, 7.0);
 struct TriangleCandidateSplitPlane
@@ -49,12 +48,14 @@ struct SplitNode
 	int end;
 	int leftChild;
 	int rightChild;
+	
 	float xMin;
 	float xMax;
 	float yMin;
 	float yMax;
 	float zMin;
 	float zMax;
+	
 };
 
 
@@ -72,16 +73,16 @@ struct mat4
 
 
 float4  mul(struct mat4 m4, float4 l)
-	{
-		float4 res;
-		res.x = m4.l0.x*l.x + m4.l0.y*l.y + m4.l0.z*l.z + m4.l0.w*l.w;
-		res.y = m4.l1.x*l.x + m4.l1.y*l.y + m4.l1.z*l.z + m4.l1.w*l.w;
-		res.z = m4.l2.x*l.x + m4.l2.y*l.y + m4.l2.z*l.z + m4.l2.w*l.w;
-		res.w = m4.l3.x*l.x + m4.l3.y*l.y + m4.l3.z*l.z + m4.l3.w*l.w;
+{
+	float4 res;
+	res.x = m4.l0.x*l.x + m4.l0.y*l.y + m4.l0.z*l.z + m4.l0.w*l.w;
+	res.y = m4.l1.x*l.x + m4.l1.y*l.y + m4.l1.z*l.z + m4.l1.w*l.w;
+	res.z = m4.l2.x*l.x + m4.l2.y*l.y + m4.l2.z*l.z + m4.l2.w*l.w;
+	res.w = m4.l3.x*l.x + m4.l3.y*l.y + m4.l3.z*l.z + m4.l3.w*l.w;
 
-		return res;
+	return res;
 		
-	};
+};
 
 void UpdateSplitNodeWithAABBInfo(__global struct SplitNode *nodeArray,
 								 int idx, 
@@ -150,8 +151,10 @@ __kernel void BitonicSort (__global struct TriangleCandidateSplitPlane* input,
     int wid = get_local_id(0);  
     int itemsInGroup = get_local_size(0);  
       
-    for(int gpos = bid; gpos < (*group); gpos += groupsInKernel) {  
-        for(int pos = wid; pos < (*length)/2; pos += itemsInGroup) {  
+    for(int gpos = bid; gpos < (*group); gpos += groupsInKernel)
+	{  
+        for(int pos = wid; pos < (*length)/2; pos += itemsInGroup)
+		{  
             int begin = gpos * (*length);  
             int delta;  
             if ((*flip) == 1)   delta = (*length) - 1;  
@@ -160,7 +163,8 @@ __kernel void BitonicSort (__global struct TriangleCandidateSplitPlane* input,
             int a = begin + pos;  
             int b = begin + delta - (*flip) * pos;  
               
-            if ( (*dir) == (input[a].xMin > input[b].xMin) ) {  
+            if ( (*dir) == (input[a].xMin > input[b].xMin) )
+			{  
                 struct TriangleCandidateSplitPlane temp = input[a];  
                 input[a] = input[b];  
                 input[b] = temp;  
@@ -180,15 +184,16 @@ __kernel void PSOSAHSplit(__global struct TriangleCandidateSplitPlane* input,
 {
 	int idx= get_global_id(0) + (*splitNodeArrayBeg);
 	//printf("Beg:%d\t\tEnd:%d\t\tID:%d\t\t\nnodeBeg:%d\t\tnodeEnd:%d\t\t\n", *splitNodeArrayBeg, *splitNodeArrayEnd, idx, splitNodeArray[idx].beg, splitNodeArray[idx].end);
+	splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
+	splitNodeArray[idx].xMin = input[splitNodeArray[idx].beg].xMin;
+	splitNodeArray[idx].yMax = input[splitNodeArray[idx].beg].yMax;
+	splitNodeArray[idx].yMin = input[splitNodeArray[idx].beg].yMin;
+	splitNodeArray[idx].zMax = input[splitNodeArray[idx].beg].zMax;
+	splitNodeArray[idx].zMin = input[splitNodeArray[idx].beg].zMin;
+	UpdateSplitNodeWithAABBInfo(splitNodeArray, idx, input);
 	if((idx>= *splitNodeArrayBeg)&&(idx<= *splitNodeArrayEnd) && (splitNodeArray[idx].end - splitNodeArray[idx].beg > 64) && (splitNodeArray[idx].beg != -1) && (splitNodeArray[idx].end != -1))
 	{
-		splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
-		splitNodeArray[idx].xMin = input[splitNodeArray[idx].beg].xMin;
-		splitNodeArray[idx].yMax = input[splitNodeArray[idx].beg].yMax;
-		splitNodeArray[idx].yMin = input[splitNodeArray[idx].beg].yMin;
-		splitNodeArray[idx].zMax = input[splitNodeArray[idx].beg].zMax;
-		splitNodeArray[idx].zMin = input[splitNodeArray[idx].beg].zMin;
-		UpdateSplitNodeWithAABBInfo(splitNodeArray, idx, input);
+		
 		
 		int iPos = 0;
 		int jPos = 0;
@@ -256,6 +261,7 @@ __kernel void PSOSAHSplit(__global struct TriangleCandidateSplitPlane* input,
 		splitNodeArray[idx*2 + 1].end = currentPos - 1;
 		splitNodeArray[idx*2 + 2].beg = currentPos;
 		splitNodeArray[idx*2 + 2].end = splitNodeArray[idx].end;
+
 		if((idx*2 + 2) < *maxSize)
 		{
 			splitNodeArray[idx].leftChild = idx*2 + 1;
@@ -278,15 +284,16 @@ __kernel void SAHSplit(__global const struct TriangleCandidateSplitPlane* input,
 {
 	int idx= get_global_id(0) + (*splitNodeArrayBeg);
 	//printf("Beg:%d\t\tEnd:%d\t\tID:%d\t\t\nnodeBeg:%d\t\tnodeEnd:%d\t\t\n", *splitNodeArrayBeg, *splitNodeArrayEnd, idx, splitNodeArray[idx].beg, splitNodeArray[idx].end);
+	splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
+	splitNodeArray[idx].xMin = input[splitNodeArray[idx].beg].xMin;
+	splitNodeArray[idx].yMax = input[splitNodeArray[idx].beg].yMax;
+	splitNodeArray[idx].yMin = input[splitNodeArray[idx].beg].yMin;
+	splitNodeArray[idx].zMax = input[splitNodeArray[idx].beg].zMax;
+	splitNodeArray[idx].zMin = input[splitNodeArray[idx].beg].zMin;
+	UpdateSplitNodeWithAABBInfo(splitNodeArray, idx, input);
+		
 	if((idx>= *splitNodeArrayBeg)&&(idx<= *splitNodeArrayEnd) && (splitNodeArray[idx].end - splitNodeArray[idx].beg > 64) && (splitNodeArray[idx].beg != -1) && (splitNodeArray[idx].end != -1))
 	{
-		splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
-		splitNodeArray[idx].xMin = input[splitNodeArray[idx].beg].xMin;
-		splitNodeArray[idx].yMax = input[splitNodeArray[idx].beg].yMax;
-		splitNodeArray[idx].yMin = input[splitNodeArray[idx].beg].yMin;
-		splitNodeArray[idx].zMax = input[splitNodeArray[idx].beg].zMax;
-		splitNodeArray[idx].zMin = input[splitNodeArray[idx].beg].zMin;
-		UpdateSplitNodeWithAABBInfo(splitNodeArray, idx, input);
 		
 		int i = 0;
 		int j = 0;
@@ -352,15 +359,16 @@ __kernel void CommSAHSplit(__global const struct TriangleCandidateSplitPlane* in
 						)
 {
 	int idx= get_global_id(0) + (*splitNodeArrayBeg);
+	splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
+	splitNodeArray[idx].xMin = input[splitNodeArray[idx].beg].xMin;
+	splitNodeArray[idx].yMax = input[splitNodeArray[idx].beg].yMax;
+	splitNodeArray[idx].yMin = input[splitNodeArray[idx].beg].yMin;
+	splitNodeArray[idx].zMax = input[splitNodeArray[idx].beg].zMax;
+	splitNodeArray[idx].zMin = input[splitNodeArray[idx].beg].zMin;
+	UpdateSplitNodeWithAABBInfo(splitNodeArray, idx, input);
 	if((idx>= *splitNodeArrayBeg)&&(idx<= *splitNodeArrayEnd) && (splitNodeArray[idx].end - splitNodeArray[idx].beg > 64) && (splitNodeArray[idx].beg != -1) && (splitNodeArray[idx].end != -1))
 	{
-		splitNodeArray[idx].xMax = input[splitNodeArray[idx].beg].xMax;
-		splitNodeArray[idx].xMin = input[splitNodeArray[idx].beg].xMin;
-		splitNodeArray[idx].yMax = input[splitNodeArray[idx].beg].yMax;
-		splitNodeArray[idx].yMin = input[splitNodeArray[idx].beg].yMin;
-		splitNodeArray[idx].zMax = input[splitNodeArray[idx].beg].zMax;
-		splitNodeArray[idx].zMin = input[splitNodeArray[idx].beg].zMin;
-		UpdateSplitNodeWithAABBInfo(splitNodeArray, idx, input);
+		
 		
 		int currentPos =  splitNodeArray[idx].beg;
 		float currentSAH = ComputeSAH(currentPos, splitNodeArray, idx, input);
@@ -370,8 +378,6 @@ __kernel void CommSAHSplit(__global const struct TriangleCandidateSplitPlane* in
 		for(int i = splitNodeArray[idx].beg + 1; i < splitNodeArray[idx].end; i++)
 		{
 			fTmpSAH = ComputeSAH(i, splitNodeArray, idx, input);
-			
-			
 
 			if( fTmpSAH < currentSAH)
 			{
@@ -379,23 +385,28 @@ __kernel void CommSAHSplit(__global const struct TriangleCandidateSplitPlane* in
 				currentSAH = fTmpSAH;
 			}
 		}
-	
-
-
 		
+		splitNodeArray[idx*2 + 1].beg = splitNodeArray[idx].beg;
+		splitNodeArray[idx*2 + 1].end = currentPos - 1;
+		splitNodeArray[idx*2 + 2].beg = currentPos;
+		splitNodeArray[idx*2 + 2].end = splitNodeArray[idx].end;
 		
 		if((idx*2 + 2) < *maxSize)
 		{
-			splitNodeArray[idx*2 + 1].beg = splitNodeArray[idx].beg;
-			splitNodeArray[idx*2 + 1].end = currentPos - 1;
-			splitNodeArray[idx*2 + 2].beg = currentPos;
-			splitNodeArray[idx*2 + 2].end = splitNodeArray[idx].end;
 			splitNodeArray[idx].leftChild = idx*2 + 1;
 			splitNodeArray[idx].rightChild = idx*2 + 2;
+			
 		}
-		
-		
-		
+		/*else
+		{
+			splitNodeArray[idx].leftChild = *maxSize - 2;
+			splitNodeArray[idx].rightChild = *maxSize - 1;
+			splitNodeArray[splitNodeArray[idx].leftChild].beg = splitNodeArray[idx].beg;
+			splitNodeArray[splitNodeArray[idx].leftChild].end = currentPos - 1;
+			splitNodeArray[splitNodeArray[idx].rightChild].beg = currentPos;
+			splitNodeArray[splitNodeArray[idx].rightChild].end = splitNodeArray[idx].end;
+		}
+		*/
 	}
 	//printf("\n");
 }
@@ -417,15 +428,14 @@ bool bCross(struct t stT, float* tMin, float* tMax)
 	
 	if((stT.txMax < stT.tyMin) || (stT.tyMax < stT.txMin)) return false;
 
-	*tMin = (stT.txMin < stT.tyMin) ? stT.tyMin : stT.txMin;
-	*tMax = (stT.txMax > stT.tyMax) ? stT.tyMax : stT.txMax;
+	*tMin = (stT.txMin < stT.tyMin) ? stT.txMin : stT.tyMin;
+	*tMax = (stT.txMax > stT.tyMax) ? stT.txMax : stT.tyMax;
 
 	if((*tMax < stT.tzMin) || (stT.tzMax < *tMin)) return false;
 
-	*tMin = (*tMin < stT.tzMin) ? stT.tzMin : *tMin ;
-	*tMax = (*tMax > stT.tzMax) ? stT.tzMax : *tMax ;
+	*tMin = (*tMin > stT.tzMin) ? stT.tzMin : *tMin ;
+	*tMax = (*tMax < stT.tzMax) ? stT.tzMax : *tMax ;
 
-	
 	return true;
 
 	
@@ -500,7 +510,8 @@ bool bIntersect(struct TriangleInfo sTri,float3 f3EyePos, float3 f3LightDir,floa
 	return true;
 }	
 
-float3 reflect(float3 V, float3 N){
+float3 reflect(float3 V, float3 N)
+{
 	return V - 2.0f * dot( V, N ) * N;
 }
 
@@ -514,9 +525,9 @@ uchar3 RayCrossTraingleTest(struct SplitNode node, float3 f3EyePos, float3 f3Lig
 	float3 f3InterPos;
 	float3 R;
 	float  cosAlpha;
-	int	   iInBox =1 ;
+	int	   iInBox =1;
 
-	for(int i=node.beg; (i<=node.end) && (iInBox == 1) ; i++)
+	for(int i=node.beg; (i<=node.end) && (iInBox == 1); i++)
 	{	
 		int idx = input[i].triangleID;
 		if( bIntersect(TriangleInfoArray[idx], f3EyePos, f3LightDir, tMin, tMax, &f3InterPos) )
@@ -598,7 +609,7 @@ void PushStack(struct Stack* sSt, struct SplitNode sSN)
 {
 
 	int idx = sSt->top;
-	if( sSt->size < idx)
+	if( sSt->size <= idx)
 	{
 		printf("the top is beyond the size of stack ");
 	}
@@ -708,9 +719,6 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 		struct SplitNode snCurNode = PopStack(&sStack);
 		struct t sT;
 		
-
-	
-
 		float fTmp1, fTmp2;
 
 		if( f3LightDir.x != 0 )
@@ -723,8 +731,8 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 		}
 		else
 		{
-			sT.txMin = INT_MIN;
-			sT.txMax = INT_MAX;
+			sT.txMin = 0;
+			sT.txMax = 0;
 		}
 		
 
@@ -738,8 +746,8 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 		}
 		else
 		{
-			sT.tyMin = INT_MIN;
-			sT.txMax = INT_MAX;
+			sT.tyMin = 0;
+			sT.tyMax = 0;
 		}
 
 		if( f3LightDir.z != 0 )
@@ -752,30 +760,23 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 		}
 		else
 		{
-			sT.tzMin = INT_MIN;
-			sT.tzMax = INT_MAX;
+			sT.tzMin = 0;
+			sT.tzMax = 0;
 		}
 
 	
 		
-		/*if( !bCross(sT, tMin, tMax))
-		{
-			printf("%f %f %f %f %f %f", sT.txMin, sT.txMax, sT.tyMin, sT.tyMax, sT.tzMin, sT.tzMax);
-		}*/
-
+		
+		
 		while( (snCurNode.leftChild != -1) && (bCross(sT, tMin, tMax)) )
 		{
 			
-
+			
 			PushStack(&sStack, spSplitNodeArray[snCurNode.rightChild]);
 			
 			snCurNode = spSplitNodeArray[snCurNode.leftChild];
 		
 			if( (snCurNode.leftChild == -1) && (snCurNode.rightChild == -1)) break;
-
-			
-
-			
 
 			if( f3LightDir.x != 0 )
 			{
@@ -787,10 +788,9 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 			}
 			else
 			{
-				sT.txMin = INT_MIN;
-				sT.txMax = INT_MAX;
+				sT.txMin = 0;
+				sT.txMax = 0;
 			}
-		
 
 			if( f3LightDir.y != 0 )
 			{
@@ -802,8 +802,8 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 			}
 			else
 			{
-				sT.tyMin = INT_MIN;
-				sT.txMax = INT_MAX;
+				sT.tyMin = 0;
+				sT.tyMax = 0;
 			}
 
 			if( f3LightDir.z != 0 )
@@ -816,8 +816,8 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 			}
 			else
 			{
-				sT.tzMin = INT_MIN;
-				sT.tzMax = INT_MAX;
+				sT.tzMin = 0;
+				sT.tzMax = 0;
 			}
 
 		
@@ -826,7 +826,6 @@ uchar3 RayCrossAABBTest(struct SplitNode root, float3 f3EyePos, float3 f3LightDi
 
 		if( ( snCurNode.leftChild == -1 ) && ( snCurNode.rightChild == -1 ))
 		{
-			
 			uchar3 uc3Tmp = RayCrossTraingleTest( snCurNode, f3EyePos, f3LightDir, &fDst, TriangleInfoArray, input, tMin, tMax, f3NextPos, f3NextDir, cosAlpha, flag);
 			if( fDst < fLastDst)
 			{
@@ -1026,7 +1025,7 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 		{
 			f3Res = uc3TmpColor;
 		}
-		if( 0 != i)
+		else if( 0 != i)
 		{
 			float fDist = distance(f3Pos, f3NextPos);
 			
@@ -1042,47 +1041,9 @@ __kernel void RayTrace(__global const struct SplitNode* spSplitNodeArray, __glob
 	pcResPB[(i*(*iWinWidth)+idx)*4] = f3Res.x;
 	pcResPB[(i*(*iWinWidth)+idx)*4 + 1] = f3Res.y;
 	pcResPB[(i*(*iWinWidth)+idx)*4 + 2] = f3Res.z;
-	pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 0;
+	pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 1;
 
-	//左上为黑
-	//if( idx < *iWinWidth/2.0 && i > *iWinHeight/2.0 )
-	//{
-	//		pcResPB[(i*(*iWinWidth)+idx)*4] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 1] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 2] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 0;
-
-	//}
-	//
-	////右上为红
-	//if( idx > *iWinWidth/2.0 && i > *iWinHeight/2.0 )
-	//{
-	//		pcResPB[(i*(*iWinWidth)+idx)*4] = 255;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 1] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 2] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 0;
-
-	//}
-
-	////左下为绿
-	//if( idx < *iWinWidth/2.0 && i < *iWinHeight/2.0 )
-	//{
-	//		pcResPB[(i*(*iWinWidth)+idx)*4] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 1] = 255;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 2] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 0;
-
-	//}
-
-	////右下为蓝
-	//if( idx > *iWinWidth/2.0 && i < *iWinHeight/2.0 )
-	//{
-	//		pcResPB[(i*(*iWinWidth)+idx)*4] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 1] = 0;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 2] = 255;
-	//		pcResPB[(i*(*iWinWidth)+idx)*4 + 3] = 0;
-
-	//}
+	
 #endif
 
 }

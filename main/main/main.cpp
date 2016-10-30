@@ -66,7 +66,8 @@ void main(int argc, char** argv)
 	glfwMakeContextCurrent(window);
 
 	glewExperimental = GL_TRUE;
-	if ( glewInit() != GLEW_OK ) {
+	if ( glewInit() != GLEW_OK ) 
+	{
 		checkErr(PRINT_INFO, "fail to init glew");
 		glfwTerminate();
 		exit(0);
@@ -324,7 +325,7 @@ void main(int argc, char** argv)
 	clSetKernelArg(ckCommSplitKernel, 4, sizeof(cl_mem), &maxSizeMem);
 
 	int depth = 0;
-	for(int i = 1; (i < log((float)maxSplitNodeArrayLength) / log(2.0) + 1) && (depth < MAXDEPTH); i++)
+	for(int i = 1; (i < log((float)maxSplitNodeArrayLength) / log(2.0) ) && (depth < MAXDEPTH); i++)
 	{
 
 		int splitNodeArrayBeg = pow(2.0, i - 1) - 1;
@@ -337,6 +338,7 @@ void main(int argc, char** argv)
 		cl_mem splitNodeArrayBegMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayBeg, &uiStatus);
 		checkErr(uiStatus, "clCreateBuffer of splitNodeArrayBegMem error");
 		cl_mem splitNodeArrayEndMem = clCreateBuffer(clContext, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, sizeof(int), &splitNodeArrayEnd, &uiStatus);
+		checkErr(uiStatus, "clCreateBuffer of splitNodeArrayEndMem error");
 
 		clSetKernelArg(ckCommSplitKernel, 2, sizeof(cl_mem), &splitNodeArrayBegMem);
 		clSetKernelArg(ckCommSplitKernel, 3, sizeof(cl_mem), &splitNodeArrayEndMem);
@@ -349,14 +351,14 @@ void main(int argc, char** argv)
 	}
 
 	clFinish(clQueue);
-
 	DWORD dwCommBuildEnd = GetTickCount();
 	std::cout<<"the time cost of building Comm-KD-tree is "<<dwCommBuildEnd - dwBuildBeg<<std::endl;
 #endif
 	//ÊÍ·Å×ÊÔ´
 	clReleaseKernel(clKernel);
-	clReleaseKernel(kernelSAHSplit);
+	
 #ifdef __OPT__
+	clReleaseKernel(kernelSAHSplit);
 	clReleaseMemObject(randProMem);
 	clReleaseMemObject(randArrayMem);
 #endif
@@ -603,8 +605,9 @@ void main(int argc, char** argv)
 //	DWORD dwRenderEnd = GetTickCount();
 //	std::cout<<" the PBO is completed"<<std::endl;
 #ifdef __COMM__
-	std::cout<<" the comm-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
+	//std::cout<<" the comm-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
 #endif
+
 #ifdef __OPT__
 	//std::cout<<" the opt-render time is "<< dwRenderEnd - dwRenderBeg <<std::endl;
 #endif
@@ -762,7 +765,7 @@ void main(int argc, char** argv)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
-		DWORD dwRenderEnd = GetTickCount();
+ 		DWORD dwRenderEnd = GetTickCount();
 		std::cout<<"the render time is "<< dwRenderEnd - dwRenderBeg<<std::endl;
 	} while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS);
 	
